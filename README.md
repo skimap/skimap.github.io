@@ -1,1 +1,0 @@
-# skimap.github.io

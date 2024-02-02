@@ -5,8 +5,8 @@ import html
 
 # Directories
 base_dir = "C:/zselyigy/dev/bence20240201/"
-#merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
-merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
+merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
 
 # coloring scheme
 # 1: green/blue/red/black
@@ -14,7 +14,7 @@ merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
 coloring_scheme = 2     
 
 mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
-map_title = '''Sípálya meredekség térkép<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
+map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
 title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
 mymap.get_root().html.add_child(folium.Element(title_html))
 # Iterate over files in the directory again to add points and lines to the map

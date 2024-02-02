@@ -1,7 +1,6 @@
 import os
 import folium
 import gpxpy
-import html
 
 # Directories
 base_dir = "C:/zselyigy/dev/bence20240201/"

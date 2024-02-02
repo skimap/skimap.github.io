@@ -1,24 +1,21 @@
 import os
-import gpxpy
 import folium
+import gpxpy
+import html
 
-
-# Get the current directory
+# Directories
 base_dir = "C:/zselyigy/dev/bence20240201/"
-merge_directory = f"{base_dir}tracks/to_be_merged/"
-
+merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
 
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
 coloring_scheme = 2     
 
-# Lists to store all latitude and longitude points
-all_latitudes = []
-all_longitudes = []
-
 mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
-
+map_title = '''Sípálya meredekség térkép<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
+title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
+mymap.get_root().html.add_child(folium.Element(title_html))
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
     if filename.endswith(".gpx"):
@@ -124,5 +121,5 @@ google_analytics_code = """
 html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)
 
 # Write the modified HTML content to a file
-with open(os.path.join(base_dir, "index.html"), 'w') as html_file:
+with open(os.path.join(base_dir, "index.html"), "w", encoding="utf-8") as html_file:
     html_file.write(html_content)

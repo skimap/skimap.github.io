@@ -5,7 +5,8 @@ import html
 
 # Directories
 base_dir = "C:/zselyigy/dev/bence20240201/"
-merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
+merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
 
 # coloring scheme
 # 1: green/blue/red/black
@@ -87,8 +88,10 @@ for filename in os.listdir(merge_directory):
                     return '#0000FF'     # blue
                 elif rate >= -0.3:
                     return '#800080'     # purple
-                elif rate >= -0.45:
+                elif rate >= -0.37:
                     return 'red'
+                elif rate >= -0.45:
+                    return 'darkred'
                 else:
                     return 'black'
 
@@ -99,7 +102,6 @@ for filename in os.listdir(merge_directory):
                 color=get_color(moving_avg[i]),
                 weight=6
             ).add_to(mymap)
-        break
 
 # Save the map as an HTML file
 html_content = mymap.get_root().render()

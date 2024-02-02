@@ -17,31 +17,7 @@ coloring_scheme = 2
 all_latitudes = []
 all_longitudes = []
 
-# Iterate over files in the directory
-for filename in os.listdir(merge_directory):
-    if filename.endswith(".gpx"):
-        # Parse the GPX file
-        gpx_file = open(os.path.join(merge_directory, filename), 'r')
-        gpx = gpxpy.parse(gpx_file)
-
-        # Extract latitude and longitude data from all points
-        for track in gpx.tracks:
-            for segment in track.segments:
-                for point in segment.points:
-                    all_latitudes.append(point.latitude)
-                    all_longitudes.append(point.longitude)
-
-# Check if there are any points in the GPX files
-if all_latitudes and all_longitudes:
-    # Get the latitude and longitude of the latest point
-    latest_latitude = all_latitudes[-1]
-    latest_longitude = all_longitudes[-1]
-
-    # Create the map centered at the latest point with a zoom level of 15
-    mymap = folium.Map(location=[latest_latitude, latest_longitude], zoom_start=15)
-else:
-    # If there are no points in the GPX files, create a map with default center and zoom
-    mymap = folium.Map(location=[0, 0], zoom_start=15)
+mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
 
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
@@ -126,7 +102,7 @@ for filename in os.listdir(merge_directory):
                 color=get_color(moving_avg[i]),
                 weight=6
             ).add_to(mymap)
-        
+        break
 
 # Save the map as an HTML file
 html_content = mymap.get_root().render()

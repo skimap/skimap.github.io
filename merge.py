@@ -2,8 +2,12 @@ import os
 import gpxpy
 import folium
 
+
 # Get the current directory
-directory = "C:/zselyigy/dev/bence20240201/"
+base_dir = "C:/zselyigy/dev/bence20240201/"
+merge_directory = f"{base_dir}tracks/to_be_merged/"
+
+
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
@@ -14,10 +18,10 @@ all_latitudes = []
 all_longitudes = []
 
 # Iterate over files in the directory
-for filename in os.listdir(directory):
+for filename in os.listdir(merge_directory):
     if filename.endswith(".gpx"):
         # Parse the GPX file
-        gpx_file = open(os.path.join(directory, filename), 'r')
+        gpx_file = open(os.path.join(merge_directory, filename), 'r')
         gpx = gpxpy.parse(gpx_file)
 
         # Extract latitude and longitude data from all points
@@ -40,10 +44,10 @@ else:
     mymap = folium.Map(location=[0, 0], zoom_start=15)
 
 # Iterate over files in the directory again to add points and lines to the map
-for filename in os.listdir(directory):
+for filename in os.listdir(merge_directory):
     if filename.endswith(".gpx"):
         # Parse the GPX file
-        gpx_file = open(os.path.join(directory, filename), 'r')
+        gpx_file = open(os.path.join(merge_directory, filename), 'r')
         gpx = gpxpy.parse(gpx_file)
 
         # Extract latitude, longitude, and elevation data
@@ -144,5 +148,5 @@ google_analytics_code = """
 html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)
 
 # Write the modified HTML content to a file
-with open(os.path.join(directory, "index.html"), 'w') as html_file:
+with open(os.path.join(base_dir, "index.html"), 'w') as html_file:
     html_file.write(html_content)

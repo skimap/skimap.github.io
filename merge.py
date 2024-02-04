@@ -2,22 +2,27 @@ import os
 import folium
 import gpxpy
 
-# Directories
-base_dir = "C:/zselyigy/dev/bence20240201/"
-merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
+# TODO check open skimap if inclusion is possible
 
+# Directories
+base_dir = "C:/zselyigy/dev/skimap/"
+#merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
+merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/raw/Ivett Ördög/Visegrád/"     # Tracks to be merged
+skiing = 0
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
 coloring_scheme = 2     
-
+color= ""
 mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
 map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
 title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
 mymap.get_root().html.add_child(folium.Element(title_html))
+joe=1
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
+    print(joe/len(os.listdir(merge_directory)) * 100)
     if filename.endswith(".gpx"):
         # Parse the GPX file
         gpx_file = open(os.path.join(merge_directory, filename), 'r')
@@ -41,11 +46,11 @@ for filename in os.listdir(merge_directory):
             distance = gpxpy.geo.haversine_distance(latitude_data[i - 1], longitude_data[i - 1],
                                                     latitude_data[i], longitude_data[i])
             elevation_gain = elevation_data[i] - elevation_data[i - 1]
-            if elevation_gain < 0:
+            if distance != 0:
                 descent_rate = elevation_gain / distance
-            else:
-                descent_rate = 0
-            descent_rates.append(descent_rate)
+                descent_rates.append(descent_rate)
+            else: 
+                descent_rates.append(0)
 
         # Compute 3-point moving average for descent rates
         moving_avg = []
@@ -94,13 +99,25 @@ for filename in os.listdir(merge_directory):
                 else:
                     return 'black'
 
+        def track_minimal_distance_to_point(gpx_track, ref_point):
+            return gpxpy.geo.haversine_distance(*gpx_track, *ref_point)
+        def check_if_point_is_startingpoint(avg1, avg2, avg3, avg4, avg5, avg, i, *ref_point):
+            if color != "#4a412a" and avg1 >= 0 and avg2 >= 0 and avg3 >= 0 and avg4 >= 0 and avg5 >= 0 and avg < 0:
+                for point in ref_point:
+                    if track_minimal_distance_to_point((latitude_data[i], longitude_data[i]), point) < 50:
+                        return True
+                return False
+            return False
         # Add points and lines to the map with color-coded descent rate
         for i in range(len(latitude_data) - 1):
-            folium.PolyLine(
-                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]],
-                color=get_color(moving_avg[i]),
-                weight=6
-            ).add_to(mymap)
+                if check_if_point_is_startingpoint(moving_avg[i-1], moving_avg[i-2], moving_avg[i-3],moving_avg[i-4], moving_avg[i-5], moving_avg[i], i, (47.92128621601892, 19.87078625429176), (47.92118202312616, 19.873263068969358), (47.921449210708005, 19.871306204097557)):
+                    color = "#4a412a"
+                    skiing += 1
+                else:
+                    color=get_color(moving_avg[i]),
+                folium.PolyLine(
+                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=6, color=color).add_to(mymap)
+    joe += 1
 
 # Save the map as an HTML file
 html_content = mymap.get_root().render()
@@ -116,6 +133,21 @@ google_analytics_code = """
 
   gtag('config', 'G-HLZTNBRD6S');
 </script>
+
+<!-- HTML Content -->
+<div class="dropdown">
+    <select onchange="window.location.href = this.value;">
+        <option value="./index.html">Index</option>
+        <option value="./index1.html">Index 1</option>
+        <option value="./index2.html">Index 2</option>
+        <!-- Add more pages here as needed -->
+    </select>
+</div>
+
+<div id="index" class="page active">Index Page Content</div>
+<div id="index1" class="page">Index 1 Page Content</div>
+<div id="index2" class="page">Index 2 Page Content</div>
+<!-- Add more pages here as needed -->
 """
 
 # Insert the Analytics code just before the closing </head> tag
@@ -124,3 +156,5 @@ html_content = html_content.replace("</head>", google_analytics_code + "</head>"
 # Write the modified HTML content to a file
 with open(os.path.join(base_dir, "index.html"), "w", encoding="utf-8") as html_file:
     html_file.write(html_content)
+    
+print(skiing)

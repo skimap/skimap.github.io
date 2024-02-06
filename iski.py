@@ -2,14 +2,14 @@ from sys import argv
 from urllib import request
 import ssl
 from js2py import eval_js
- 
+
 import json
- 
+
 # Use JS to convert timestamp to datestring. The z param allows for manual timezone correction
 def toDate(e, z = 2):
     date = eval_js(f'new Date({e})')
     return f'{date.getHours()-z:02}:{date.getMinutes():02}:{date.getSeconds():02}'
- 
+
 while True:
     # The base url for iSki shares
     ssl._create_default_https_context = ssl._create_unverified_context

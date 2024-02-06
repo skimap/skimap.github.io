@@ -15,10 +15,14 @@ skiing = 0
 # 2: light green/dark green/light blue/dark blue/purple/red/black
 coloring_scheme = 2     
 color= ""
+
+# create a map centered at mid Europe with a zoom level of 15
 mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
 map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
 title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
 mymap.get_root().html.add_child(folium.Element(title_html))
+
+# joe is a progress level variable iterates through all files in working directory
 joe=1
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
@@ -52,7 +56,7 @@ for filename in os.listdir(merge_directory):
             else: 
                 descent_rates.append(0)
 
-        # Compute 3-point moving average for descent rates
+        # Compute 5-point moving average for descent rates
         moving_avg = []
         for i in range(len(descent_rates)):
             if i < 4:
@@ -100,14 +104,38 @@ for filename in os.listdir(merge_directory):
                     return 'black'
 
         def track_minimal_distance_to_point(gpx_track, ref_point):
+            """
+            Calculates the minimal distance between a gpx track and a reference point.
+
+            Args:
+                gpx_track (gpxpy.gpx.GPXTrack): The gpx track to calculate the distance for.
+                ref_point (tuple): The reference point as a tuple of (latitude, longitude).
+
+            Returns:
+                float: The minimal distance between the gpx track and the reference point.
+            """
             return gpxpy.geo.haversine_distance(*gpx_track, *ref_point)
+        
         def check_if_point_is_startingpoint(avg1, avg2, avg3, avg4, avg5, avg, i, *ref_point):
+            """
+            Checks if a point is a starting point of a ski slide based on the moving average of the decent rates.
+
+            Args:
+                avg1-5 (float): The moving average of the decent rates from the previous five points.
+                avg (float): The moving average of the decent rates of the current point.
+                i (int): The index of the current point.
+                ref_point (tuple): A tuple of reference points to check if the current point is close to any of them.
+
+            Returns:
+                bool: True if the current point is a starting point, False otherwise.
+            """
             if color != "#4a412a" and avg1 >= 0 and avg2 >= 0 and avg3 >= 0 and avg4 >= 0 and avg5 >= 0 and avg < 0:
                 for point in ref_point:
                     if track_minimal_distance_to_point((latitude_data[i], longitude_data[i]), point) < 50:
                         return True
                 return False
             return False
+        
         # Add points and lines to the map with color-coded descent rate
         for i in range(len(latitude_data) - 1):
                 if check_if_point_is_startingpoint(moving_avg[i-1], moving_avg[i-2], moving_avg[i-3],moving_avg[i-4], moving_avg[i-5], moving_avg[i], i, (47.92128621601892, 19.87078625429176), (47.92118202312616, 19.873263068969358), (47.921449210708005, 19.871306204097557)):

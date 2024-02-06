@@ -180,7 +180,7 @@ google_analytics_code = """
 html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)
 
 # Write the modified HTML content to a file
-with open(os.path.join(base_dir, "index.html"), "w", encoding="utf-8") as html_file:
+with open(os.path.join(base_dir, "skimap.html"), "w", encoding="utf-8") as html_file:
     html_file.write(html_content)
     
 print(skiing)

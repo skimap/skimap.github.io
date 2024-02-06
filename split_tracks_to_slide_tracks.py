@@ -1,5 +1,4 @@
 # this script splits the raw gps tracks to smaller tranck containing one slides only
-
 import json
 import os
 
@@ -7,16 +6,16 @@ import gpxpy
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
-merge_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be merged
-
+split_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be merged
+html_directory = f"{base_dir}htmls/splitted_slides/"       # HTML files to be created
 # read the last coordinates of the ski lifts
 lifts = json.load(open(os.path.join(base_dir, 'lifts.json')))
 lift_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts]     # latitude and longitude are ofter switched
 # Iterate over files in the directory again to add points and lines to the map
-for filename in os.listdir(merge_directory):
+for filename in os.listdir(split_directory):
     if filename.endswith(".gpx"):
         # Parse the GPX file
-        gpx_file = open(os.path.join(merge_directory, filename), 'r')
+        gpx_file = open(os.path.join(split_directory, filename), 'r')
         gpx = gpxpy.parse(gpx_file)
 
         # Extract latitude, longitude, and elevation data
@@ -124,12 +123,33 @@ for filename in os.listdir(merge_directory):
             # Write the GPX data to a file
             with open(output_file, "w") as f:
                 f.write(gpx.to_xml())
+        
+        def save_track_to_html(filename, latitude, longitude):
+            import folium
+            # create a map centered at mid Europe with a zoom level of 15
+            mymap = folium.Map(location=[latitude[0], longitude[0]], zoom_start=16)
+            title_html = f'<h3 align="center" style="font-size:16px" >{filename}</h3>'
+            mymap.get_root().html.add_child(folium.Element(title_html))
+
+
+            for i in range(len(latitude) - 1):
+                    folium.PolyLine(
+                    locations=[[latitude[i], longitude[i]], [latitude[i + 1], longitude[i + 1]]], weight=6, color='black').add_to(mymap)
+
+
+            # Save the map as an HTML file
+            html_content = mymap.get_root().render()
+
+            # Write the modified HTML content to a file
+            with open(os.path.join(html_directory, f"{filename}.html"), "w", encoding="utf-8") as html_file:
+                html_file.write(html_content)
+                
 
         # find the end points of the lifts and split the tracks to slides
         skiing = 1
         # Create a new directory for the split tracks
         try:
-            os.mkdir(f'{merge_directory}{filename[:-4]}')
+            os.mkdir(f'{split_directory}{filename[:-4]}')
         except:
             pass
         # store the first index of the skiing slide
@@ -146,11 +166,17 @@ for filename in os.listdir(merge_directory):
                                                 moving_avg[i],
                                                 i,
                                                 *lift_coordinate_tuples_consumable):
-                new_filename = f"{merge_directory}{filename[:-4]}/{filename[:-4]}_{skiing:03d}.gpx"     # generate a file name for the new skiing slide
+                # create a new GPX file for the new skiing slide
+                new_filename = f"{split_directory}{filename[:-4]}/{filename[:-4]}_{skiing:03d}.gpx"     # generate a file name for the new skiing slide
                 create_gpx(latitude_data[first_index:i-1],
                             longitude_data[first_index:i-1],
                             elevation_data[first_index:i-1],
-                            new_filename)     # create a new GPX file for the new skiing slide
+                            new_filename)
+                # create a new HTML file for the new skiing slide
+                new_filename = f"{html_directory}/{filename[:-4]}_{skiing:03d}"     # generate a file name for the new skiing slide
+                save_track_to_html(new_filename,
+                                   latitude_data[first_index:i-1],
+                                   longitude_data[first_index:i-1])
                 first_index = i
                 print(f'Slide {skiing} created')
                 skiing += 1

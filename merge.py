@@ -2,8 +2,6 @@ import os
 import folium
 import gpxpy
 
-# TODO check open skimap if inclusion is possible
-
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
 #merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged

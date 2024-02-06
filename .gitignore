@@ -1,3 +1,5 @@
 htmls/
 lifts.geojson
 runs.geojson
+tracks/test/
+tracks/tracks_to_split/

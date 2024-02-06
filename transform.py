@@ -10,13 +10,13 @@ newjs = []
 # identify the end points of the ski lifts depending on the types of the coordinates
 for i in range(len(lifts["features"])):
     if isinstance(lifts["features"][i]["geometry"]["coordinates"][-1], (float, int)):
-        newjs.append(lifts["features"][i]["geometry"]["coordinates"])
+        newjs.append(lifts["features"][i]["geometry"]["coordinates"][:2])
     elif isinstance(lifts["features"][i]["geometry"]["coordinates"][-1][-1], (float, int)):
-        newjs.append(lifts["features"][i]["geometry"]["coordinates"][-1])
+        newjs.append(lifts["features"][i]["geometry"]["coordinates"][-1][:2])
     elif isinstance(lifts["features"][i]["geometry"]["coordinates"][0], list):
-        newjs.append(lifts["features"][i]["geometry"]["coordinates"][0][-1])
+        newjs.append(lifts["features"][i]["geometry"]["coordinates"][0][-1][:2])
     else: 
-        newjs.append(lifts["features"][i]["geometry"]["coordinates"])
+        newjs.append(lifts["features"][i]["geometry"]["coordinates"][:2])
         print(lifts["features"][i]["geometry"]["coordinates"])
     print(i)
     

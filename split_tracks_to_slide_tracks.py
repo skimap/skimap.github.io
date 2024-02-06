@@ -1,12 +1,17 @@
 # this script splits the raw gps tracks to smaller tranck containing one slides only
 
+import json
 import os
+
 import gpxpy
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
 merge_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be merged
 
+# read the last coordinates of the ski lifts
+lifts = json.load(open(os.path.join(base_dir, 'lifts.json')))
+lift_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts]     # latitude and longitude are ofter switched
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
     if filename.endswith(".gpx"):
@@ -131,7 +136,8 @@ for filename in os.listdir(merge_directory):
         first_index = 0
         
         for i in range(len(latitude_data) - 1):
-            # the starting points are only a few particular ones in Mátra
+            # convert the coordinates of the lifts to tuples, it is exhausted in each use, so should be recreated each time
+            lift_coordinate_tuples_consumable = lift_coordinate_tuples
             if check_if_point_is_startingpoint(moving_avg[i-1],
                                                 moving_avg[i-2],
                                                 moving_avg[i-3],
@@ -139,13 +145,13 @@ for filename in os.listdir(merge_directory):
                                                 moving_avg[i-5],
                                                 moving_avg[i],
                                                 i,
-                                                (47.92128621601892, 19.87078625429176),
-                                                (47.92118202312616, 19.873263068969358),
-                                                (47.921449210708005, 19.871306204097557)):
+                                                *lift_coordinate_tuples_consumable):
                 new_filename = f"{merge_directory}{filename[:-4]}/{filename[:-4]}_{skiing:03d}.gpx"     # generate a file name for the new skiing slide
                 create_gpx(latitude_data[first_index:i-1],
                             longitude_data[first_index:i-1],
                             elevation_data[first_index:i-1],
                             new_filename)     # create a new GPX file for the new skiing slide
                 first_index = i
+                print(f'Slide {skiing} created')
                 skiing += 1
+

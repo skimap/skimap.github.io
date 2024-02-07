@@ -10,7 +10,7 @@ while True:
     for filename in os.listdir(html_directory):
         if filename.endswith(".html"):
             webbrowser.open_new_tab(f"{html_directory + filename}")
-            if input("Correct track? Y/Enter key") == "Y":
+            if input("Correct track? Enter 'Y' key to keep, any other key will delete both the html and gpx files. ").upper() == "Y":
                 pass
             else:
                 os.remove(f"{html_directory + filename}")

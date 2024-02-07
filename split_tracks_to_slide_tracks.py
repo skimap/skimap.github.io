@@ -6,7 +6,7 @@ import gpxpy
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
-split_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be merged
+split_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be splitted
 html_directory = f"{base_dir}htmls/splitted_slides/"       # HTML files to be created
 # read the last coordinates of the ski lifts
 lifts = json.load(open(os.path.join(base_dir, 'lifts.json')))
@@ -167,7 +167,7 @@ for filename in os.listdir(split_directory):
                                                 i,
                                                 *lift_coordinate_tuples_consumable):
                 # create a new GPX file for the new skiing slide
-                new_filename = f"{split_directory}{filename[:-4]}/{filename[:-4]}_{skiing:03d}.gpx"     # generate a file name for the new skiing slide
+                new_filename = f"{split_directory}splitted_slides/{filename[:-4]}_{skiing:03d}.gpx"     # generate a file name for the new skiing slide
                 create_gpx(latitude_data[first_index:i-1],
                             longitude_data[first_index:i-1],
                             elevation_data[first_index:i-1],

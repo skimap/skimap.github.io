@@ -149,7 +149,7 @@ for filename in os.listdir(split_directory):
         skiing = 1
         # Create a new directory for the split tracks
         try:
-            os.mkdir(f'{split_directory}{filename[:-4]}')
+            os.mkdir(f'{split_directory}splitted_slides')
         except:
             pass
         # store the first index of the skiing slide

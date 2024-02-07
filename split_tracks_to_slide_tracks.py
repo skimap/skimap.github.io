@@ -154,7 +154,8 @@ for filename in os.listdir(split_directory):
             pass
         # store the first index of the skiing slide
         first_index = 0
-        
+
+# TODO remove lifting parts of the tracks
         for i in range(len(latitude_data) - 1):
             # convert the coordinates of the lifts to tuples, it is exhausted in each use, so should be recreated each time
             lift_coordinate_tuples_consumable = lift_coordinate_tuples

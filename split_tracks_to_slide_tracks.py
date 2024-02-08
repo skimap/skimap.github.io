@@ -66,7 +66,7 @@ for filename in os.listdir(split_directory):
 
         def track_minimal_distance_to_point(gpx_track, ref_point):
             """
-            Calculates the minimal distance between a gpx track and a reference point.
+            Calculates the minimal distance between a gpx track and a reference point in meters.
 
             Args:
                 gpx_track (gpxpy.gpx.GPXTrack): The gpx track to calculate the distance for.
@@ -110,7 +110,7 @@ for filename in os.listdir(split_directory):
             Returns:
                 bool: True if the current point is an end point, False otherwise.
             """
-            if avg1 < 0 and avg2 < 0 and avg3 < 0 and avg4 < 0 and avg5 < 0 and avg > 0:
+            if avg1 <= 0 and avg2 <= 0 and avg3 <= 0 and avg4 <= 0 and avg5 <= 0 and avg > 0:
                 for point in ref_point:
                     if track_minimal_distance_to_point((latitude_data[i], longitude_data[i]), point) < 50:
                         return True

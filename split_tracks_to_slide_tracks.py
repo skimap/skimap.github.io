@@ -8,9 +8,15 @@ import gpxpy
 base_dir = "C:/zselyigy/dev/skimap/"
 split_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be splitted
 html_directory = f"{base_dir}htmls/splitted_slides/"       # HTML files to be created
+
+# read the first coordinates of the ski lifts
+lifts_s = json.load(open(os.path.join(base_dir, 'lifts_s.json')))
+lift_start_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_s]     # latitude and longitude are ofter switched
+
 # read the last coordinates of the ski lifts
-lifts = json.load(open(os.path.join(base_dir, 'lifts.json')))
-lift_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts]     # latitude and longitude are ofter switched
+lifts_e = json.load(open(os.path.join(base_dir, 'lifts_e.json')))
+lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]     # latitude and longitude are ofter switched
+
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(split_directory):
     if filename.endswith(".gpx"):
@@ -90,7 +96,26 @@ for filename in os.listdir(split_directory):
                         return True
                 return False
             return False
-        
+
+        def check_if_point_is_endpoint(avg1, avg2, avg3, avg4, avg5, avg, i, *ref_point):
+            """
+            Checks if a point is an end point of a ski slide based on the moving average of the decent rates.
+
+            Args:
+                avg1-5 (float): The moving average of the decent rates from the previous five points.
+                avg (float): The moving average of the decent rates of the current point.
+                i (int): The index of the current point.
+                ref_point (tuple): A tuple of reference points to check if the current point is close to any of them.
+
+            Returns:
+                bool: True if the current point is an end point, False otherwise.
+            """
+            if avg1 < 0 and avg2 < 0 and avg3 < 0 and avg4 < 0 and avg5 < 0 and avg > 0:
+                for point in ref_point:
+                    if track_minimal_distance_to_point((latitude_data[i], longitude_data[i]), point) < 50:
+                        return True
+                return False
+            return False        
 
         def create_gpx(latitudes, longitudes, elevations, output_file):
             """
@@ -158,16 +183,16 @@ for filename in os.listdir(split_directory):
 # TODO remove lifting parts of the tracks
         for i in range(len(latitude_data) - 1):
             # convert the coordinates of the lifts to tuples, it is exhausted in each use, so should be recreated each time
-            lift_coordinate_tuples_consumable = lift_coordinate_tuples
-            if check_if_point_is_startingpoint(moving_avg[i-1],
-                                                moving_avg[i-2],
-                                                moving_avg[i-3],
-                                                moving_avg[i-4],
-                                                moving_avg[i-5],
-                                                moving_avg[i],
-                                                i,
-                                                *lift_coordinate_tuples_consumable):
-                # create a new GPX file for the new skiing slide
+            lift_start_coordinate_tuples_consumable = lift_start_coordinate_tuples
+            if check_if_point_is_endpoint(moving_avg[i-1],
+                                    moving_avg[i-2],
+                                    moving_avg[i-3],
+                                    moving_avg[i-4],
+                                    moving_avg[i-5],
+                                    moving_avg[i],
+                                    i,
+                                    *lift_start_coordinate_tuples_consumable):
+                # lift is arrived, create a new GPX file for the new skiing slide
                 new_filename = f"{split_directory}splitted_slides/{filename[:-4]}_{skiing:03d}.gpx"     # generate a file name for the new skiing slide
                 create_gpx(latitude_data[first_index:i-1],
                             longitude_data[first_index:i-1],
@@ -178,7 +203,17 @@ for filename in os.listdir(split_directory):
                 save_track_to_html(new_filename,
                                    latitude_data[first_index:i-1],
                                    longitude_data[first_index:i-1])
-                first_index = i
                 print(f'Slide {skiing} created')
                 skiing += 1
+
+            lift_end_coordinate_tuples_consumable = lift_end_coordinate_tuples
+            if check_if_point_is_startingpoint(moving_avg[i-1],
+                                                moving_avg[i-2],
+                                                moving_avg[i-3],
+                                                moving_avg[i-4],
+                                                moving_avg[i-5],
+                                                moving_avg[i],
+                                                i,
+                                                *lift_end_coordinate_tuples_consumable):
+                first_index = i     # a new slide is started, so the first index of the skiing slide is the first index of the lift
 

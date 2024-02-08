@@ -149,8 +149,9 @@ for filename in os.listdir(split_directory):
             with open(output_file, "w") as f:
                 f.write(gpx.to_xml())
         
-        def save_track_to_html(filename, latitude, longitude):
+        def save_track_to_html(filename, latitude, longitude, moving_avg):
             import folium
+            import color as c
             # create a map centered at mid Europe with a zoom level of 15
             mymap = folium.Map(location=[latitude[0], longitude[0]], zoom_start=16)
             title_html = f'<h3 align="center" style="font-size:16px" >{filename}</h3>'
@@ -159,7 +160,7 @@ for filename in os.listdir(split_directory):
 
             for i in range(len(latitude) - 1):
                     folium.PolyLine(
-                    locations=[[latitude[i], longitude[i]], [latitude[i + 1], longitude[i + 1]]], weight=6, color='black').add_to(mymap)
+                    locations=[[latitude[i], longitude[i]], [latitude[i + 1], longitude[i + 1]]], weight=6, color=c.get_color(moving_avg[i], 2)).add_to(mymap)
 
 
             # Save the map as an HTML file
@@ -202,7 +203,8 @@ for filename in os.listdir(split_directory):
                 new_filename = f"{html_directory}/{filename[:-4]}_{skiing:03d}"     # generate a file name for the new skiing slide
                 save_track_to_html(new_filename,
                                    latitude_data[first_index:i-1],
-                                   longitude_data[first_index:i-1])
+                                   longitude_data[first_index:i-1],
+                                   moving_avg[first_index:i-1])
                 print(f'Slide {skiing} was created from {filename}.')
                 skiing += 1
 

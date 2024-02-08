@@ -30,12 +30,13 @@ with open("ref_points.json", encoding='utf-8') as f:
 # iterate through all gpx files in the track directory
 for filename in os.listdir(track_directory):
     if filename.endswith(".gpx"):
-        # print the name of the file
-        print(filename)
         # Parse the GPX file
         gpx_file = open(os.path.join(track_directory, filename), 'r')
         gpx = gpxpy.parse(gpx_file)
 
+        smallest_avg_distance = np.inf
+        closest_ski_area = None
+        closest_ski_track = None
         # iterate through all ski areas and tracks
         for ski_area in slope_ref_points['items']: # loop over the items list
             for track in ski_area['tracks']: # loop over the tracks list
@@ -50,5 +51,14 @@ for filename in os.listdir(track_directory):
                         gpx_points = np.array([(p.latitude, p.longitude) for p in gpx_segment.points])
                         # calculate the pairwise distances between the gpx points and the reference points
                         distances = scipy.spatial.distance.cdist(gpx_points, ref_points)
-                        # print the minimal distance among all distances
-                        print(distances.min())
+                        # calculate the minimal values for each reference point
+                        min_values = np.min(distances, axis=0)
+                        avg_distance = np.mean(min_values)                       
+                        #print(f'{ski_area["name"]}, {track["trackname"]}: {avg_distance}')
+                        if avg_distance < smallest_avg_distance:
+                            smallest_avg_distance = avg_distance
+                            closest_ski_area = ski_area["name"]
+                            closest_ski_track = track["trackname"]
+                            
+        # print the closest ski area and track                       
+        print(f'{filename}: the closest ski area and track is {ski_area["name"]}, {track["trackname"]} with avg distance {smallest_avg_distance}.')

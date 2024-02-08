@@ -203,7 +203,7 @@ for filename in os.listdir(split_directory):
                 save_track_to_html(new_filename,
                                    latitude_data[first_index:i-1],
                                    longitude_data[first_index:i-1])
-                print(f'Slide {skiing} created')
+                print(f'Slide {skiing} was created from {filename}.')
                 skiing += 1
 
             lift_end_coordinate_tuples_consumable = lift_end_coordinate_tuples

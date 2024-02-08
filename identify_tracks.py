@@ -61,4 +61,4 @@ for filename in os.listdir(track_directory):
                             closest_ski_track = track["trackname"]
                             
         # print the closest ski area and track                       
-        print(f'{filename}: the closest ski area and track is {ski_area["name"]}, {track["trackname"]} with avg distance {smallest_avg_distance}.')
+        print(f'{filename}: the closest ski area and track is {closest_ski_area}, {closest_ski_track} with avg distance {smallest_avg_distance}.')

@@ -1,4 +1,3 @@
-from sys import argv
 from urllib import request
 import ssl
 from js2py import eval_js

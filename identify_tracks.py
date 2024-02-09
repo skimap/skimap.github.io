@@ -1,6 +1,7 @@
 # identfies the corresponding ski slopes and sorts the gpx files according to them
 import json
 import os
+import shutil
 
 import gpxpy
 import numpy as np
@@ -33,6 +34,7 @@ for filename in os.listdir(track_directory):
         # Parse the GPX file
         gpx_file = open(os.path.join(track_directory, filename), 'r')
         gpx = gpxpy.parse(gpx_file)
+        gpx_file.close()
 
         smallest_avg_distance = np.inf
         closest_ski_area = None
@@ -62,3 +64,18 @@ for filename in os.listdir(track_directory):
                             
         # print the closest ski area and track                       
         print(f'{filename}: the closest ski area and track is {closest_ski_area}, {closest_ski_track} with avg distance {smallest_avg_distance}.')
+        
+        # in case the distance is too large we put file in directory not_found
+        if smallest_avg_distance > 0.01:
+            shutil.move(track_directory+filename, f'{track_directory}not_found/{filename}')
+        else:
+            # create the {track_directory}/identified/{closest_ski_area}/{closest_ski_track}/{filename}.gpx file
+            try:
+                os.mkdir(f'{track_directory}identified/{closest_ski_area}')
+            except:
+                pass
+            try:
+                os.mkdir(f'{track_directory}identified/{closest_ski_area}/{closest_ski_track}')
+            except:
+                pass
+            shutil.move(track_directory+filename, f'{track_directory}identified/{closest_ski_area}/{closest_ski_track}/{filename}')

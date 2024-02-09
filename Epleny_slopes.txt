@@ -1,0 +1,21 @@
+A1      ok
+A3      ok
+A4      ok
+A5      ok, vége kicsit hiányzik
+A6      ok
+A7      ok
+R8      nincs
+Q2      összerakható nagyjából, de hozzá kell nyúlni
+
+Q2+A3
+Q2+Q5+Q2
+A4+Q7+R8
+A4+Q7+A3
+A7+Q3+A1    ok
+A7+A6       ok
+
+
+T1      nincs
+T2      nem jó helyen van
+T3      nem jó helyen van
+T4      nincs

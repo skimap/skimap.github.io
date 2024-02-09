@@ -76,15 +76,27 @@ for filename in os.listdir(track_directory):
                 length_track = np.sum(length_track_list)
                 rel_length_diff = length_track / length_gpx_track
                 abs_length_diff = np.abs(length_track - length_gpx_track)
-                print(f'{ski_area["name"]}, {track["trackname"]}, {avg_distance}, {length_gpx_track}, {length_track}, {rel_length_diff}', {abs_length_diff}, file= log_file)
-                if (avg_distance < smallest_avg_distance) and ((abs(rel_length_diff - 1) < 0.1) or (abs_length_diff < 40)):
+                distance_of_starting_points = gpxpy.geo.haversine_distance(ref_points[0][0],
+                                                ref_points[0][1],
+                                                gpx_points[0][0],
+                                                gpx_points[0][1])
+                distance_of_end_points = gpxpy.geo.haversine_distance(ref_points[-1][0],
+                                                ref_points[-1][1],
+                                                gpx_points[-1][0],
+                                                gpx_points[-1][1])
+                print(f'{ski_area["name"]}, {track["trackname"]}, {avg_distance}, {length_gpx_track}, {length_track}, {rel_length_diff}, {abs_length_diff}, {distance_of_starting_points}, {distance_of_end_points}', file= log_file)
+                if (avg_distance < smallest_avg_distance) and ((abs(rel_length_diff - 1) < 0.13) or (abs_length_diff < 40)) and (distance_of_starting_points < 70) and (distance_of_end_points< 70):
                     smallest_avg_distance = avg_distance
                     closest_ski_area = ski_area["name"]
                     closest_ski_track = track["trackname"]
                             
-        # print the closest ski area and track                       
-        print(f'{filename}: the closest ski area and track is {closest_ski_area}, {closest_ski_track} with avg distance {smallest_avg_distance}.', file= log_file)
-        print(f'{filename}: the closest ski area and track is {closest_ski_area}, {closest_ski_track} with avg distance {smallest_avg_distance}.')
+        # print the closest ski area and track               
+        if (closest_ski_area == None) and (closest_ski_track == None):         
+            print(f'{filename}: no fitting ski area + slope found.', file= log_file)
+            print(f'{filename}: no fitting ski area + slope found.')
+        else:
+            print(f'{filename}: the closest ski area and slope is {closest_ski_area}, {closest_ski_track} with avg distance {smallest_avg_distance}.', file= log_file)
+            print(f'{filename}: the closest ski area and slope is {closest_ski_area}, {closest_ski_track} with avg distance {smallest_avg_distance}.')
         
         # in case the distance is too large we put file in directory not_found
         if smallest_avg_distance > 0.01:

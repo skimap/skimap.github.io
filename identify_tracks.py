@@ -48,10 +48,11 @@ for filename in os.listdir(track_directory):
                 # convert the gpx segment to a numpy array of coordinates
                 gpx_points = np.array([(p.latitude, p.longitude) for p in gpx_segment.points])
 
-        length_gpx_track = gpxpy.geo.haversine_distance(gpx_points[0][0],
-                                                        gpx_points[0][1],
-                                                        gpx_points[-1][0],
-                                                        gpx_points[-1][1])
+        length_gpx_list = [gpxpy.geo.haversine_distance(gpx_points[i][0],
+                                        gpx_points[i][1],
+                                        gpx_points[i+1][0],
+                                        gpx_points[i+1][1]) for i in range(len(gpx_points) - 1)]
+        length_gpx_track = np.sum(length_gpx_list)
 
         smallest_avg_distance = np.inf
         closest_ski_area = None
@@ -68,10 +69,11 @@ for filename in os.listdir(track_directory):
                 min_values = np.min(distances, axis=0)
                 avg_distance = np.mean(min_values)
                 # find the length of the slopes
-                length_track = gpxpy.geo.haversine_distance(ref_points[0][0],
-                                                ref_points[0][1],
-                                                ref_points[-1][0],
-                                                ref_points[-1][1])
+                length_track_list = [gpxpy.geo.haversine_distance(ref_points[i][0],
+                                                ref_points[i][1],
+                                                ref_points[i+1][0],
+                                                ref_points[i+1][1]) for i in range(len(ref_points) - 1)]
+                length_track = np.sum(length_track_list)
                 rel_length_diff = length_track / length_gpx_track
                 abs_length_diff = np.abs(length_track - length_gpx_track)
                 print(f'{ski_area["name"]}, {track["trackname"]}, {avg_distance}, {length_gpx_track}, {length_track}, {rel_length_diff}', {abs_length_diff}, file= log_file)

@@ -25,13 +25,14 @@ def save_track_to_html(filename, latitude, longitude):
     with open(os.path.join(html_directory, f"{filename}.html"), "w", encoding="utf-8") as html_file:
         html_file.write(html_content)
         
-        
+
+json_filename = "Matraszentistvan"        
 # read the slope coordinates from the newslopes.json file
-with open("newslopes.json", 'r', encoding='utf-8') as file:
+with open(f"{json_filename}.json", 'r', encoding='utf-8') as file:
     runs = json.load(file)
 
 for i, track in enumerate(runs["items"][0]["tracks"]):
-    filename = f'newslopes_slopeNo_{i}_id_{track["trackname"]}'
+    filename = f'{json_filename}_slopeNo_{i}_id_{track["trackname"]}'
     lat = []
     lon = []
     for point in track["points"]:

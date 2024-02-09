@@ -1,5 +1,6 @@
 import json
 import os
+import webbrowser
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
@@ -28,7 +29,7 @@ def save_track_to_html(filename, latitude, longitude):
         html_file.write(html_content)
         
 
-json_filename = "Matraszentistvan"        
+json_filename = "Epleny"        
 # read the slope coordinates from the newslopes.json file
 with open(f"{json_filename}.json", 'r', encoding='utf-8') as file:
     runs = json.load(file)
@@ -42,3 +43,4 @@ for i, track in enumerate(runs["items"][0]["tracks"]):
         lon.append(point["lon"])
     save_track_to_html(filename, lat, lon)
     print(f'{filename} was saved.')
+    webbrowser.open_new_tab(f"{html_directory}{filename}.html")

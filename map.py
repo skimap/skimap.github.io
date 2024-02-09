@@ -1,5 +1,6 @@
 import gpxpy
 import folium
+import webbrowser
 
 # coloring scheme
 # 1: green/blue/red/black
@@ -7,7 +8,7 @@ import folium
 coloring_scheme = 2     
 
 # Parse the GPX file
-filename = "2022-03-26.gpx"
+filename = "c:/zselyigy/dev/skimap/tracks/identification/identified/Sípark Mátraszentistván/4/Mátra 2024-02-04_017.gpx"
 gpx_file = open(filename, 'r')
 gpx = gpxpy.parse(gpx_file)
 
@@ -96,3 +97,4 @@ for i in range(len(latitude_data) - 1):
 
 # Save the map as an HTML file
 mymap.save(f"{filename[:-4]}-track.html")
+webbrowser.open_new_tab(f"{filename[:-4]}-track.html")

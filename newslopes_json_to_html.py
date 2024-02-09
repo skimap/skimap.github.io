@@ -16,6 +16,8 @@ def save_track_to_html(filename, latitude, longitude):
     for i in range(len(latitude) - 1):
             folium.PolyLine(
             locations=[[latitude[i], longitude[i]], [latitude[i + 1], longitude[i + 1]]], weight=6, color='black').add_to(mymap)
+            # add markers to make the points easier to see
+            folium.Marker([latitude[i], longitude[i]], icon= folium.Icon(color='blue', icon='star')).add_to(mymap)
 
 
     # Save the map as an HTML file

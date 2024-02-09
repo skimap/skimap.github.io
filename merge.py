@@ -6,9 +6,8 @@ import color as c
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
-#merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
-merge_directory = f"{base_dir}tracks/test/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/raw/Ivett Ördög/Visegrád/"     # Tracks to be merged
+merge_directory = f"{base_dir}tracks/identification/identified/Sípark Mátraszentistván/6+5/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/identification/not_found/"     # Tracks to be merged
 skiing = 0
 # coloring scheme
 # 1: green/blue/red/black
@@ -26,7 +25,7 @@ mymap.get_root().html.add_child(folium.Element(title_html))
 joe=1
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
-    print(joe/len(os.listdir(merge_directory)) * 100)
+    print(f'{filename} processed, {joe/len(os.listdir(merge_directory)) * 100:.2f}% done.')
     if filename.endswith(".gpx"):
         # Parse the GPX file
         gpx_file = open(os.path.join(merge_directory, filename), 'r')

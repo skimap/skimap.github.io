@@ -10,22 +10,30 @@ with open("runs.geojson", 'r', encoding='utf-8') as file:
 print('runs.geojson file read.')
 
 
-
 items = []
+matra = []
+mytrack = []
+skiarea_name ="Sípark Mátraszentistván"
 # identify the end points of the ski runs depending on the types of the coordinates
 for i in range(len(runs["features"])):
+    print(i)
     if runs["features"][i]["properties"]["uses"][0] == "downhill":
-        if runs["features"][i]["properties"]["skiAreas"][0]["properties"]["name"] == "Sípark Mátraszentistván":
-            # collect the slope coordinates
-            points = []
-            mytrack = []
-            for j in range(len(runs["features"][i]["geometry"]["coordinates"][0])):
-                points.append({"lat": runs["features"][i]["geometry"]["coordinates"][0][1][1], "lon": runs["features"][i]["geometry"]["coordinates"][0][1][0]})
-            # Append a dictionary with trackname and points keys to the tracks list
-            mytrack.append({"trackname": runs["features"][i]["properties"]["name"] , "points": points})
-            # Append a dictionary with name and tracks keys to the items list
-            items.append({"name": runs["features"][i]["properties"]["skiAreas"][0]["properties"]["name"], "tracks": mytrack})
-        print(i)
+        if len(runs["features"][i]["properties"]["skiAreas"]) != 0:
+            print(runs["features"][i]["properties"]["skiAreas"][0]["properties"]["name"])
+            if runs["features"][i]["properties"]["skiAreas"][0]["properties"]["name"] == skiarea_name:
+                matra.append(i)
+                # collect the slope coordinates
+                points = []
+                for j in range(len(runs["features"][i]["geometry"]["coordinates"])):
+                    if isinstance(runs["features"][i]["geometry"]["coordinates"][0][0], float):
+                        points.append({"lat": runs["features"][i]["geometry"]["coordinates"][j][1], "lon": runs["features"][i]["geometry"]["coordinates"][j][0]})
+                    else:
+                        points.append({"lat": runs["features"][i]["geometry"]["coordinates"][0][j][1], "lon": runs["features"][i]["geometry"]["coordinates"][0][j][0]})
+                # Append a dictionary with trackname and points keys to the tracks list
+                mytrack.append({"trackname": runs["features"][i]["properties"]["name"] , "points": points})
+                
+# Append a dictionary with name and tracks keys to the items list
+items.append({"name": skiarea_name, "tracks": mytrack})
 
 # Create the JSON structure
 json_data = {"items": items}

@@ -1,13 +1,21 @@
 import os
 import folium
 import gpxpy
+import json
 
 import color as c
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
-merge_directory = f"{base_dir}tracks/identification/identified/Sípark Mátraszentistván/6+5/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/identification/identified/Síaréna Vibe Park/A1/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/identification/identified/Sípark Mátraszentistván 202402092051/5+4/merged/"     # Tracks to be merged
 #merge_directory = f"{base_dir}tracks/identification/not_found/"     # Tracks to be merged
+merge_directory = f"{base_dir}tracks/tracks_to_split/splitted_slides/"
+
+# read the last coordinates of the ski lifts
+lifts_e = json.load(open(os.path.join(base_dir, 'lifts_e.json')))
+lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]    
+
 skiing = 0
 # coloring scheme
 # 1: green/blue/red/black
@@ -17,9 +25,9 @@ color= ""
 
 # create a map centered at mid Europe with a zoom level of 15
 mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
-map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
-title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
-mymap.get_root().html.add_child(folium.Element(title_html))
+# map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
+# title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
+# mymap.get_root().html.add_child(folium.Element(title_html))
 
 # joe is a progress level variable iterates through all files in working directory
 joe=1
@@ -104,13 +112,21 @@ for filename in os.listdir(merge_directory):
         
         # Add points and lines to the map with color-coded descent rate
         for i in range(len(latitude_data) - 1):
-                if check_if_point_is_startingpoint(moving_avg[i-1], moving_avg[i-2], moving_avg[i-3],moving_avg[i-4], moving_avg[i-5], moving_avg[i], i, (47.92128621601892, 19.87078625429176), (47.92118202312616, 19.873263068969358), (47.921449210708005, 19.871306204097557)):
+                lift_end_coordinate_tuples_consumable = lift_end_coordinate_tuples
+                if check_if_point_is_startingpoint(moving_avg[i-1],
+                                                   moving_avg[i-2],
+                                                   moving_avg[i-3],
+                                                   moving_avg[i-4],
+                                                   moving_avg[i-5],
+                                                   moving_avg[i],
+                                                   i,
+                                                   *lift_end_coordinate_tuples_consumable):
                     color = "#4a412a"
                     skiing += 1
                 else:
                     color=c.get_color(moving_avg[i], coloring_scheme),
                 folium.PolyLine(
-                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=6, color=color).add_to(mymap)
+                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=2, color=color).add_to(mymap)
     joe += 1
 
 # Save the map as an HTML file
@@ -127,22 +143,35 @@ google_analytics_code = """
 
   gtag('config', 'G-HLZTNBRD6S');
 </script>
-
-<!-- HTML Content -->
-<div class="dropdown">
-    <select onchange="window.location.href = this.value;">
-        <option value="./index.html">Index</option>
-        <option value="./index1.html">Index 1</option>
-        <option value="./index2.html">Index 2</option>
-        <!-- Add more pages here as needed -->
-    </select>
-</div>
-
-<div id="index" class="page active">Index Page Content</div>
-<div id="index1" class="page">Index 1 Page Content</div>
-<div id="index2" class="page">Index 2 Page Content</div>
-<!-- Add more pages here as needed -->
 """
+
+# google_analytics_code = """
+# <!-- Google tag (gtag.js) -->
+# <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
+# <script>
+#   window.dataLayer = window.dataLayer || [];
+#   function gtag(){dataLayer.push(arguments);}
+#   gtag('js', new Date());
+
+#   gtag('config', 'G-HLZTNBRD6S');
+# </script>
+
+# <!-- HTML Content -->
+# <div class="dropdown">
+#     <select onchange="window.location.href = this.value;">
+#         <option value="./index.html">Index</option>
+#         <option value="./index1.html">Index 1</option>
+#         <option value="./index2.html">Index 2</option>
+#         <!-- Add more pages here as needed -->
+#     </select>
+# </div>
+
+# <div id="index" class="page active">Index Page Content</div>
+# <div id="index1" class="page">Index 1 Page Content</div>
+# <div id="index2" class="page">Index 2 Page Content</div>
+# <!-- Add more pages here as needed -->
+# """
+
 
 # Insert the Analytics code just before the closing </head> tag
 html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)

@@ -3,8 +3,7 @@ import os
 import webbrowser
 
 # Directories
-base_dir = "C:/zselyigy/dev/skimap/"
-html_directory = base_dir + "htmls/"
+html_directory = "htmls/"
 
 def save_track_to_html(filename, latitude, longitude):
     import folium

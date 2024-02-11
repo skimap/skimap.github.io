@@ -23,11 +23,10 @@ def track_minimal_distance_to_point(gpx_track, ref_point):
     return gpxpy.geo.haversine_distance(*gpx_track, *ref_point)
 
 # Directories
-base_dir = "c:/zselyigy/dev/skimap/"
-track_directory = f"{base_dir}tracks/identification/"     # Tracks to be revised
+track_directory = "tracks/identification/"     # Tracks to be revised
 
 # read the ref_points.json file
-with open("ref_points.json", encoding='utf-8') as f:
+with open("json/slopes/ref_points.json", encoding='utf-8') as f:
     slope_ref_points = json.load(f)
 
 # open a log file identify.log

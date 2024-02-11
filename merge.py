@@ -6,12 +6,11 @@ import json
 import color as c
 
 # Directories
-base_dir = "C:/zselyigy/dev/skimap/"
-#merge_directory = f"{base_dir}tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/identification/identified/Sípark Mátraszentistván/5+4/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/identification/not_found/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/tracks_to_split/splitted_slides/"
-merge_directory = f"{base_dir}tracks/eeee/"     # Tracks to be merged
+#merge_directory = "tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/"     # Tracks to be merged
+#merge_directory = "tracks/identification/identified/Sípark Mátraszentistván/5+4/"     # Tracks to be merged
+#merge_directory = "tracks/identification/not_found/"     # Tracks to be merged
+#merge_directory = "tracks/tracks_to_split/splitted_slides/"
+merge_directory = "tracks/ref_points/"     # Tracks to be merged
 
 # read the last coordinates of the ski lifts
 lifts_e = json.load(open(os.path.join(base_dir, 'lifts_e.json')))
@@ -178,7 +177,7 @@ google_analytics_code = """
 html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)
 
 # Write the modified HTML content to a file
-with open(os.path.join(base_dir, "skimap.html"), "w", encoding="utf-8") as html_file:
+with open("skimap.html", "w", encoding="utf-8") as html_file:
     html_file.write(html_content)
     
 print(skiing)

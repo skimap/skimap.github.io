@@ -4,10 +4,9 @@ import gpxpy
 import webbrowser
 
 # Directories
-base_dir = "d:/OneDrive - elte.hu/Bence/skimap.github.io/"
-#merge_directory = f"{base_dir}tracks/to_be_merged/"     # Tracks to be merged
-merge_directory = f"{base_dir}tracks/tracks_to_split/Morning_Activity/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/raw/Ivett Ördög/Visegrád/"     # Tracks to be merged
+#merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
+merge_directory = "tracks/tracks_to_split/Morning_Activity/"     # Tracks to be merged
+#merge_directory = "tracks/raw/Ivett Ördög/Visegrád/"     # Tracks to be merged
 skiing = 0
 # coloring scheme
 # 1: green/blue/red/black

@@ -4,8 +4,7 @@ import json
 import os
 
 # Directories
-base_dir = "c:/zselyigy/dev/skimap/"
-track_directory = f"{base_dir}tracks/ref_points/"     
+track_directory = "tracks/ref_points/"     
 
 for filename in os.listdir(track_directory):
     if filename.endswith(".gpx"):

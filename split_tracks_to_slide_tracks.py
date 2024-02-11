@@ -5,16 +5,15 @@ import os
 import gpxpy
 
 # Directories
-base_dir = "C:/zselyigy/dev/skimap/"
-split_directory = f"{base_dir}tracks/tracks_to_split/"     # Tracks to be splitted
-html_directory = f"{base_dir}htmls/splitted_slides/"       # HTML files to be created
+split_directory = "tracks/tracks_to_split/"     # Tracks to be splitted
+html_directory = "htmls/splitted_slides/"       # HTML files to be created
 
 # read the first coordinates of the ski lifts
-lifts_s = json.load(open(os.path.join(base_dir, 'lifts_s.json')))
+lifts_s = json.load(open('json/lifts/lifts_s.json'))
 lift_start_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_s]     # latitude and longitude are ofter switched
 
 # read the last coordinates of the ski lifts
-lifts_e = json.load(open(os.path.join(base_dir, 'lifts_e.json')))
+lifts_e = json.load(open('json/lifts/lifts_e.json'))
 lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]     # latitude and longitude are ofter switched
 
 # Iterate over files in the directory again to add points and lines to the map

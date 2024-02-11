@@ -1,9 +1,6 @@
 # extract the coordinates of the end points of the ski runs from the runs.geojson file
 import json
 
-# Directories
-base_dir = "C:/zselyigy/dev/skimap/"
-
 # read the runs.geojson file
 with open("openskimap_data/runs.geojson", 'r', encoding='utf-8') as file:
     runs = json.load(file)
@@ -39,5 +36,5 @@ items.append({"name": skiarea_name, "tracks": mytrack})
 json_data = {"items": items}
     
 # save the coordinates of the starting points of the ski lifts to a json file
-with open('newslopes.json', 'w') as file:
+with open('json/slopes/raw/newslopes.json', 'w') as file:
     json.dump(json_data, file, indent=4)

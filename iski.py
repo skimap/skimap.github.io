@@ -25,7 +25,7 @@ while True:
     data = json.loads(json.loads(json.dumps(request.urlopen(base + '/geometry.json').read().decode('utf-8'))))
 
     # Create GPX file template
-    with open(f'{date}.gpx', 'w') as file:
+    with open(f'tracks/raw/{date}.gpx', 'w') as file:
         file.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
         file.write('<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd" version="1.1" creator="gpx.py">\n')
         file.write('\t<trk>\n')

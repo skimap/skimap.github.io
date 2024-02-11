@@ -7,10 +7,11 @@ import color as c
 
 # Directories
 base_dir = "C:/zselyigy/dev/skimap/"
-#merge_directory = f"{base_dir}tracks/identification/identified/Síaréna Vibe Park/A1/"     # Tracks to be merged
-#merge_directory = f"{base_dir}tracks/identification/identified/Sípark Mátraszentistván 202402092051/5+4/merged/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/"     # Tracks to be merged
+#merge_directory = f"{base_dir}tracks/identification/identified/Sípark Mátraszentistván/5+4/"     # Tracks to be merged
 #merge_directory = f"{base_dir}tracks/identification/not_found/"     # Tracks to be merged
-merge_directory = f"{base_dir}tracks/tracks_to_split/splitted_slides/"
+#merge_directory = f"{base_dir}tracks/tracks_to_split/splitted_slides/"
+merge_directory = f"{base_dir}tracks/eeee/"     # Tracks to be merged
 
 # read the last coordinates of the ski lifts
 lifts_e = json.load(open(os.path.join(base_dir, 'lifts_e.json')))

@@ -1,18 +1,13 @@
 # converts the ref_points.json to gpx tracks of slopes
 
 import json
-import os
-import shutil
-
 import gpxpy
-
-
 
 # Directories
 track_directory = "tracks/ref_points/"     # Tracks to be revised
 
 # read the ref_points.json file
-with open("ref_points.json", encoding='utf-8') as f:
+with open("json/slopes/ref_points.json", encoding='utf-8') as f:
     slope_ref_points = json.load(f)
 
 for ski_area in slope_ref_points['items']: # loop over the items list

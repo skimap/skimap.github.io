@@ -28,18 +28,20 @@ def save_track_to_html(filename, latitude, longitude):
         html_file.write(html_content)
         
 
-json_filename = "Epleny"        
 # read the slope coordinates from the newslopes.json file
-with open(f"{json_filename}.json", 'r', encoding='utf-8') as file:
+with open("json/slopes/newslopes.json", 'r', encoding='utf-8') as file:
     runs = json.load(file)
 
-for i, track in enumerate(runs["items"][0]["tracks"]):
-    filename = f'{json_filename}_slopeNo_{i}_id_{track["trackname"]}'
-    lat = []
-    lon = []
-    for point in track["points"]:
-        lat.append(point["lat"])
-        lon.append(point["lon"])
-    save_track_to_html(filename, lat, lon)
-    print(f'{filename} was saved.')
-    webbrowser.open_new_tab(f"{html_directory}{filename}.html")
+i = 1
+for item in runs["items"]:
+    for track in item["tracks"]:
+        filename = f'{item["name"]}_slopeNo_{i}_id_{track["trackname"]}'
+        lat = []
+        lon = []
+        for point in track["points"]:
+            lat.append(point["lat"])
+            lon.append(point["lon"])
+        save_track_to_html(filename, lat, lon)
+        print(f'{filename}.html was saved.')
+        webbrowser.open_new_tab(f".\{html_directory}{filename}.html")
+        i += 1

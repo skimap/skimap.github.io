@@ -8,7 +8,9 @@ import webbrowser
 coloring_scheme = 2     
 
 # Parse the GPX file
-filename = "c:/zselyigy/dev/skimap/tracks/identification/identified/Sípark Mátraszentistván/4/Mátra 2024-02-04_017.gpx"
+#filename = "c:/zselyigy/dev/skimap/tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/Morning_Activity_027.gpx"
+#filename = "c:/zselyigy/dev/skimap/tracks/identification/identified/Sípark Mátraszentistván 202402092051/5+5B/Mátra 5+5B merged filtered 3m.gpx"
+filename = "c:/zselyigy/dev/skimap/tracks/2020_01_19_11_23_56.gpx"
 gpx_file = open(filename, 'r')
 gpx = gpxpy.parse(gpx_file)
 
@@ -36,7 +38,7 @@ for i in range(1, len(elevation_data)):
                                             latitude_data[i], longitude_data[i])
     elevation_gain = elevation_data[i] - elevation_data[i - 1]
     if elevation_gain < 0:
-        descent_rate = elevation_gain / distance
+        descent_rate = elevation_gain / distance if distance > 0 else 0
     else:
         descent_rate = 0
     descent_rates.append(descent_rate)

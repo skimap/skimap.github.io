@@ -8,3 +8,4 @@ tracks/test/
 tracks/to_be_merged/
 tracks/tracks_to_split/
 *.pyc
+.vscode/settings.json

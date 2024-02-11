@@ -4,7 +4,7 @@ import json
 import pandas as pd
 
 # read the lifts.geojson file
-lifts = pd.read_json("lifts.geojson")
+lifts = pd.read_json("openskimap_data/lifts.geojson")
 newjs_s = []
 newjs_e = []
 

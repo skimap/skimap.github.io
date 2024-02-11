@@ -5,7 +5,7 @@ import json
 base_dir = "C:/zselyigy/dev/skimap/"
 
 # read the runs.geojson file
-with open("runs.geojson", 'r', encoding='utf-8') as file:
+with open("openskimap_data/runs.geojson", 'r', encoding='utf-8') as file:
     runs = json.load(file)
 print('runs.geojson file read.')
 

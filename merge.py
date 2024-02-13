@@ -23,7 +23,7 @@ skiing = 0
 # 2: light green/dark green/light blue/dark blue/purple/red/black
 # 3: same as 2, but with correct % calculation to max percent 56% (EU)
 # 4: same as 2, but with correct % calculation to max percent 45% (HU)
-coloring_scheme = 4
+coloring_scheme = 3
 color= ""
 
 # create a map centered at mid Europe with a zoom level of 15

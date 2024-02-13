@@ -2,6 +2,8 @@ import gpxpy
 import folium
 import webbrowser
 
+import color as c
+
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
@@ -59,41 +61,12 @@ for i in range(len(descent_rates)):
 
 # Define color based on moving average descent rate
 #TODO: Implement color gradient based on previous and next descent rates
-def get_color(rate):
-    if coloring_scheme == 1:
-        if rate >= 0:
-            return '#80808020'
-        elif rate >= -0.15:
-            return 'green'
-        elif rate >= -0.29:
-            return 'blue'
-        elif rate >= -0.45:
-            return 'red'
-        else:
-            return 'black'
-    if coloring_scheme == 2:
-        if rate >= 0:
-            return '#80808080'
-        elif rate >= -0.07:
-            return '#48B748'    # light green
-        elif rate >= -0.15:
-            return '#006400'     # dark green
-        elif rate >= -0.20:
-            return '#32A2D9'     # light blue
-        elif rate >= -0.25:
-            return 'blue'
-        elif rate >= -0.3:
-            return 'purple'
-        elif rate >= -0.45:
-            return 'red'
-        else:
-            return 'black'
 
 # Add points and lines to the map with color-coded descent rate
 for i in range(len(latitude_data) - 1):
     folium.PolyLine(
         locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]],
-        color=get_color(moving_avg[i]),
+        color=c.get_color(moving_avg[i], coloring_scheme),
         weight=5
     ).add_to(mymap)
 

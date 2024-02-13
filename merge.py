@@ -10,17 +10,20 @@ import color as c
 #merge_directory = "tracks/identification/identified/Sípark Mátraszentistván/5+4/"     # Tracks to be merged
 #merge_directory = "tracks/identification/not_found/"     # Tracks to be merged
 #merge_directory = "tracks/tracks_to_split/splitted_slides/"
-merge_directory = "tracks/ref_points/"     # Tracks to be merged
+#merge_directory = "tracks/ref_points/"     # Tracks to be merged
+merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
 
 # read the last coordinates of the ski lifts
-lifts_e = json.load(open(os.path.join(base_dir, 'lifts_e.json')))
+lifts_e = json.load(open('json/lifts/lifts_e.json'))
 lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]    
 
 skiing = 0
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
-coloring_scheme = 2     
+# 3: same as 2, but with correct % calculation to max percent 56% (EU)
+# 4: same as 2, but with correct % calculation to max percent 45% (HU)
+coloring_scheme = 4
 color= ""
 
 # create a map centered at mid Europe with a zoom level of 15
@@ -126,7 +129,7 @@ for filename in os.listdir(merge_directory):
                 else:
                     color=c.get_color(moving_avg[i], coloring_scheme),
                 folium.PolyLine(
-                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=2, color=color).add_to(mymap)
+                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=6, color=color).add_to(mymap)
     joe += 1
 
 # Save the map as an HTML file

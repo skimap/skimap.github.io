@@ -11,7 +11,8 @@ import color as c
 #merge_directory = "tracks/identification/not_found/"     # Tracks to be merged
 #merge_directory = "tracks/tracks_to_split/splitted_slides/"
 #merge_directory = "tracks/ref_points/"     # Tracks to be merged
-merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
+#merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
+merge_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A7+Q3+A1/"
 
 # read the last coordinates of the ski lifts
 lifts_e = json.load(open('json/lifts/lifts_e.json'))

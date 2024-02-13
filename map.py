@@ -10,12 +10,13 @@ import color as c
 # 3: same as 2, but with correct % calculation to max percent 56% (EU)
 # 4: same as 2, but with correct % calculation to max percent 45% (HU)
 
-coloring_scheme = 4
+coloring_scheme = 3
 
 # Parse the GPX file
 #filename = "tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/Morning_Activity_027.gpx"
 #filename = "tracks/identification/identified/Sípark Mátraszentistván 202402092051/5+5B/Mátra 5+5B merged filtered 3m.gpx"
-filename = "tracks/to_be_merged/2024-01-28clean.gpx"
+#filename = "tracks/to_be_merged/2024-01-28clean.gpx"
+filename = "merged.gpx"
 gpx_file = open(filename, 'r')
 gpx = gpxpy.parse(gpx_file)
 
@@ -70,7 +71,7 @@ for i in range(len(latitude_data) - 1):
     folium.PolyLine(
         locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]],
         color=c.get_color(moving_avg[i], coloring_scheme),
-        weight=5
+        weight=6
     ).add_to(mymap)
 
 # Save the map as an HTML file

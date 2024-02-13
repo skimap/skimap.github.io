@@ -18,7 +18,7 @@ def track_minimal_distance_to_point(gpx_track, ref_point):
     return gpxpy.geo.haversine_distance(*gpx_track, *ref_point)
 
 # Directories
-track_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A1/"
+track_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A7+A6/"
 
 # read the slope coordinates from the newslopes.json file
 with open("json/slopes/Epleny_slopes.json", 'r', encoding='utf-8') as file:
@@ -27,7 +27,7 @@ with open("json/slopes/Epleny_slopes.json", 'r', encoding='utf-8') as file:
 # collect the coordinates and elevation data from the reference slope file
 for item in runs["items"]:
     for track in item["tracks"]:
-        if track["trackname"] == 'A1':
+        if track["trackname"] == 'A7+A6':
             lat = []
             lon = []
             ele = []
@@ -121,7 +121,7 @@ for lat, lon, ele, rate in zip(filtered_lat, filtered_lon, filtered_ele, filtere
     gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=ele, comment=str(rate)))
 
 # Write the GPX data to a file
-filename = 'merged.gpx'
+filename = 'merged Eplény A7+A6.gpx'
 with open(filename, "w") as f:
     f.write(gpx.to_xml())
 

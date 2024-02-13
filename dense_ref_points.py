@@ -46,6 +46,8 @@ for i in range(len(lat)-1):
         newlat.append(lat[i]+j*(lat[i+1]-lat[i])/(dnum+1))
         newlon.append(lon[i]+j*(lon[i+1]-lon[i])/(dnum+1))
 
-for i in range(len(newlat)-1):
-    d = gpxpy.geo.haversine_distance(newlat[i], newlon[i], newlat[i+1], newlon[i+1])
-    print(d)
+# todo save the new data to a file
+
+# for i in range(len(newlat)-1):
+#     d = gpxpy.geo.haversine_distance(newlat[i], newlon[i], newlat[i+1], newlon[i+1])
+#     print(d)

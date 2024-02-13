@@ -7,12 +7,15 @@ import color as c
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
-coloring_scheme = 2     
+# 3: same as 2, but with correct % calculation to max percent 56% (EU)
+# 4: same as 2, but with correct % calculation to max percent 45% (HU)
+
+coloring_scheme = 4
 
 # Parse the GPX file
 #filename = "tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/Morning_Activity_027.gpx"
 #filename = "tracks/identification/identified/Sípark Mátraszentistván 202402092051/5+5B/Mátra 5+5B merged filtered 3m.gpx"
-filename = "tracks/2020_01_19_11_23_56.gpx"
+filename = "tracks/to_be_merged/2024-01-28clean.gpx"
 gpx_file = open(filename, 'r')
 gpx = gpxpy.parse(gpx_file)
 
@@ -72,4 +75,4 @@ for i in range(len(latitude_data) - 1):
 
 # Save the map as an HTML file
 mymap.save(f"{filename[:-4]}-track.html")
-webbrowser.open_new_tab(f"{filename[:-4]}-track.html")
+#webbrowser.get('windows-default').open_new_tab(f"./{filename[:-4]}-track.html")

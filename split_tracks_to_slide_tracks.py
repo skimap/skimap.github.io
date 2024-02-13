@@ -151,7 +151,14 @@ for filename in os.listdir(split_directory):
         def save_track_to_html(filename, latitude, longitude, moving_avg):
             import folium
             import color as c
+            # coloring scheme
+            # 1: green/blue/red/black
+            # 2: light green/dark green/light blue/dark blue/purple/red/black
+            # 3: same as 2, but with correct % calculation to max percent 56% (EU)
+            # 4: same as 2, but with correct % calculation to max percent 45% (HU)
             # create a map centered at mid Europe with a zoom level of 15
+            
+            
             mymap = folium.Map(location=[latitude[0], longitude[0]], zoom_start=16)
             title_html = f'<h3 align="center" style="font-size:16px" >{filename}</h3>'
             mymap.get_root().html.add_child(folium.Element(title_html))
@@ -159,7 +166,7 @@ for filename in os.listdir(split_directory):
 
             for i in range(len(latitude) - 1):
                     folium.PolyLine(
-                    locations=[[latitude[i], longitude[i]], [latitude[i + 1], longitude[i + 1]]], weight=6, color=c.get_color(moving_avg[i], 2)).add_to(mymap)
+                    locations=[[latitude[i], longitude[i]], [latitude[i + 1], longitude[i + 1]]], weight=6, color=c.get_color(moving_avg[i], 4)).add_to(mymap)
 
 
             # Save the map as an HTML file

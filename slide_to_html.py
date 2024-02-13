@@ -3,15 +3,20 @@ import folium
 import gpxpy
 import webbrowser
 
+import color as c
+
 # Directories
 #merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
 merge_directory = "tracks/tracks_to_split/Morning_Activity/"     # Tracks to be merged
 #merge_directory = "tracks/raw/Ivett Ördög/Visegrád/"     # Tracks to be merged
 skiing = 0
+
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
-coloring_scheme = 2     
+# 3: same as 2, but with correct % calculation to max percent 56% (EU)
+# 4: same as 2, but with correct % calculation to max percent 45% (HU)
+coloring_scheme = 4
 color= ""
 
 

@@ -12,7 +12,8 @@ import color as c
 #merge_directory = "tracks/tracks_to_split/splitted_slides/"
 #merge_directory = "tracks/ref_points/"     # Tracks to be merged
 #merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
-merge_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A7+Q3+A1/"
+#merge_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A1/"
+merge_directory = "tracks/raw/Ivett Ördög/new/"
 
 # read the last coordinates of the ski lifts
 lifts_e = json.load(open('json/lifts/lifts_e.json'))
@@ -37,7 +38,7 @@ mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
 joe=1
 # Iterate over files in the directory again to add points and lines to the map
 for filename in os.listdir(merge_directory):
-    print(f'{filename} processed, {joe/len(os.listdir(merge_directory)) * 100:.2f}% done.')
+    print(f'Processing {filename}.')
     if filename.endswith(".gpx"):
         # Parse the GPX file
         gpx_file = open(os.path.join(merge_directory, filename), 'r')
@@ -131,6 +132,7 @@ for filename in os.listdir(merge_directory):
                     color=c.get_color(moving_avg[i], coloring_scheme),
                 folium.PolyLine(
                 locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=6, color=color).add_to(mymap)
+        print(f'{filename} processed, {joe/len(os.listdir(merge_directory)) * 100:.2f}% done.')
     joe += 1
 
 # Save the map as an HTML file

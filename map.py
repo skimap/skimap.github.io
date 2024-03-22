@@ -1,13 +1,22 @@
 import gpxpy
 import folium
+import webbrowser
+
+import color as c
 
 # coloring scheme
 # 1: green/blue/red/black
 # 2: light green/dark green/light blue/dark blue/purple/red/black
-coloring_scheme = 2     
+# 3: same as 2, but with correct % calculation to max percent 56% (EU)
+# 4: same as 2, but with correct % calculation to max percent 45% (HU)
+
+coloring_scheme = 3
 
 # Parse the GPX file
-filename = "2022-03-26.gpx"
+#filename = "tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/Morning_Activity_027.gpx"
+#filename = "tracks/identification/identified/Sípark Mátraszentistván 202402092051/5+5B/Mátra 5+5B merged filtered 3m.gpx"
+#filename = "tracks/to_be_merged/2024-01-28clean.gpx"
+filename = "merged.gpx"
 gpx_file = open(filename, 'r')
 gpx = gpxpy.parse(gpx_file)
 
@@ -35,7 +44,7 @@ for i in range(1, len(elevation_data)):
                                             latitude_data[i], longitude_data[i])
     elevation_gain = elevation_data[i] - elevation_data[i - 1]
     if elevation_gain < 0:
-        descent_rate = elevation_gain / distance
+        descent_rate = elevation_gain / distance if distance > 0 else 0
     else:
         descent_rate = 0
     descent_rates.append(descent_rate)
@@ -56,43 +65,15 @@ for i in range(len(descent_rates)):
 
 # Define color based on moving average descent rate
 #TODO: Implement color gradient based on previous and next descent rates
-def get_color(rate):
-    if coloring_scheme == 1:
-        if rate >= 0:
-            return '#80808020'
-        elif rate >= -0.15:
-            return 'green'
-        elif rate >= -0.29:
-            return 'blue'
-        elif rate >= -0.45:
-            return 'red'
-        else:
-            return 'black'
-    if coloring_scheme == 2:
-        if rate >= 0:
-            return '#80808080'
-        elif rate >= -0.07:
-            return '#48B748'    # light green
-        elif rate >= -0.15:
-            return '#006400'     # dark green
-        elif rate >= -0.20:
-            return '#32A2D9'     # light blue
-        elif rate >= -0.25:
-            return 'blue'
-        elif rate >= -0.3:
-            return 'purple'
-        elif rate >= -0.45:
-            return 'red'
-        else:
-            return 'black'
 
 # Add points and lines to the map with color-coded descent rate
 for i in range(len(latitude_data) - 1):
     folium.PolyLine(
         locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]],
-        color=get_color(moving_avg[i]),
-        weight=5
+        color=c.get_color(moving_avg[i], coloring_scheme),
+        weight=6
     ).add_to(mymap)
 
 # Save the map as an HTML file
 mymap.save(f"{filename[:-4]}-track.html")
+#webbrowser.get('windows-default').open_new_tab(f"./{filename[:-4]}-track.html")

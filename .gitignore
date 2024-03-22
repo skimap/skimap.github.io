@@ -1,3 +1,9 @@
 htmls/
 lifts.geojson
 runs.geojson
+tracks/eeee
+tracks/splitted/
+tracks/test/
+tracks/tracks_to_split/
+*.pyc
+.vscode/settings.json

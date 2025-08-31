@@ -2,188 +2,335 @@ import os
 import folium
 import gpxpy
 import json
-
+import math
+from collections import defaultdict
 import color as c
+from tqdm import tqdm
+from folium.plugins import LocateControl
 
-# Directories
-#merge_directory = "tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/"     # Tracks to be merged
-#merge_directory = "tracks/identification/identified/Sípark Mátraszentistván/5+4/"     # Tracks to be merged
-#merge_directory = "tracks/identification/not_found/"     # Tracks to be merged
-#merge_directory = "tracks/tracks_to_split/splitted_slides/"
-#merge_directory = "tracks/ref_points/"     # Tracks to be merged
-#merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
-#merge_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A1/"
-merge_directory = "tracks/raw/Ivett Ördög/new/"
+# Configuration
+merge_directory = "tracks/raw/all"
+coloring_scheme = 1
+output_geojson_dir = "tracks_geojson"
+min_zoom_level = 14
+max_features_per_file = 2000
+os.makedirs(output_geojson_dir, exist_ok=True)
 
-# read the last coordinates of the ski lifts
-lifts_e = json.load(open('json/lifts/lifts_e.json'))
-lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]    
+# Load lift data
+with open('json/lifts/lifts_e.json') as f:
+    lifts_e = json.load(f)
+lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]
 
-skiing = 0
-# coloring scheme
-# 1: green/blue/red/black
-# 2: light green/dark green/light blue/dark blue/purple/red/black
-# 3: same as 2, but with correct % calculation to max percent 56% (EU)
-# 4: same as 2, but with correct % calculation to max percent 45% (HU)
-coloring_scheme = 3
-color= ""
+def process_gpx_file(filename):
+    try:
+        file_path = os.path.join(merge_directory, filename)
+        with open(file_path, 'r') as gpx_file:
+            gpx = gpxpy.parse(gpx_file)
 
-# create a map centered at mid Europe with a zoom level of 15
-mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
-# map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
-# title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
-# mymap.get_root().html.add_child(folium.Element(title_html))
-
-# joe is a progress level variable iterates through all files in working directory
-joe=1
-# Iterate over files in the directory again to add points and lines to the map
-for filename in os.listdir(merge_directory):
-    print(f'Processing {filename}.')
-    if filename.endswith(".gpx"):
-        # Parse the GPX file
-        gpx_file = open(os.path.join(merge_directory, filename), 'r')
-        gpx = gpxpy.parse(gpx_file)
-
-        # Extract latitude, longitude, and elevation data
-        latitude_data = []
-        longitude_data = []
-        elevation_data = []
-        descent_rates = []
-
+        points = []
         for track in gpx.tracks:
             for segment in track.segments:
-                for point in segment.points:
-                    latitude_data.append(point.latitude)
-                    longitude_data.append(point.longitude)
-                    elevation_data.append(point.elevation)
+                points.extend([(p.latitude, p.longitude, p.elevation) for p in segment.points])
 
-        # Calculate descent rate between consecutive points
-        for i in range(1, len(elevation_data)):
-            distance = gpxpy.geo.haversine_distance(latitude_data[i - 1], longitude_data[i - 1],
-                                                    latitude_data[i], longitude_data[i])
-            elevation_gain = elevation_data[i] - elevation_data[i - 1]
-            if distance != 0:
-                descent_rate = elevation_gain / distance
-                descent_rates.append(descent_rate)
-            else: 
-                descent_rates.append(0)
+        if len(points) < 2:
+            return ([], 0)
 
-        # Compute 5-point moving average for descent rates
-        moving_avg = []
-        for i in range(len(descent_rates)):
-            if i < 4:
-                moving_avg.append(descent_rates[i])
-            else:
-                avg = (descent_rates[i - 4]
-                        + descent_rates[i - 3]
-                        + descent_rates[i - 2]
-                        + descent_rates[i - 1]
-                        + descent_rates[i]
-                       ) / 5
-                moving_avg.append(avg)
+        # Calculate descent rates and moving average
+        descent_rates = []
+        for i in range(1, len(points)):
+            distance = gpxpy.geo.haversine_distance(
+                points[i-1][0], points[i-1][1],
+                points[i][0], points[i][1]
+            )
+            elevation_gain = points[i][2] - points[i-1][2]
+            descent_rates.append(elevation_gain / distance if distance != 0 else 0)
 
-        def track_minimal_distance_to_point(gpx_track, ref_point):
-            """
-            Calculates the minimal distance between a gpx track and a reference point.
+        moving_avg = [sum(descent_rates[max(0,i-4):i+1])/5 for i in range(len(descent_rates))]
 
-            Args:
-                gpx_track (gpxpy.gpx.GPXTrack): The gpx track to calculate the distance for.
-                ref_point (tuple): The reference point as a tuple of (latitude, longitude).
+        # Process segments in order
+        segments = []
+        skiing = 0
 
-            Returns:
-                float: The minimal distance between the gpx track and the reference point.
-            """
-            return gpxpy.geo.haversine_distance(*gpx_track, *ref_point)
-        
-        def check_if_point_is_startingpoint(avg1, avg2, avg3, avg4, avg5, avg, i, *ref_point):
-            """
-            Checks if a point is a starting point of a ski slide based on the moving average of the decent rates.
+        for i in range(len(points) - 1):
+            if i >= len(moving_avg):
+                break
 
-            Args:
-                avg1-5 (float): The moving average of the decent rates from the previous five points.
-                avg (float): The moving average of the decent rates of the current point.
-                i (int): The index of the current point.
-                ref_point (tuple): A tuple of reference points to check if the current point is close to any of them.
+            current_point = (points[i][0], points[i][1])
+            next_point = (points[i+1][0], points[i+1][1])
 
-            Returns:
-                bool: True if the current point is a starting point, False otherwise.
-            """
-            if color != "#4a412a" and avg1 >= 0 and avg2 >= 0 and avg3 >= 0 and avg4 >= 0 and avg5 >= 0 and avg < 0:
-                for point in ref_point:
-                    if track_minimal_distance_to_point((latitude_data[i], longitude_data[i]), point) < 50:
-                        return True
-                return False
-            return False
-        
-        # Add points and lines to the map with color-coded descent rate
-        for i in range(len(latitude_data) - 1):
-                lift_end_coordinate_tuples_consumable = lift_end_coordinate_tuples
-                if check_if_point_is_startingpoint(moving_avg[i-1],
-                                                   moving_avg[i-2],
-                                                   moving_avg[i-3],
-                                                   moving_avg[i-4],
-                                                   moving_avg[i-5],
-                                                   moving_avg[i],
-                                                   i,
-                                                   *lift_end_coordinate_tuples_consumable):
+            # Determine color for this segment
+            if i >= 5 and all(m >= 0 for m in moving_avg[i-5:i]) and moving_avg[i] < 0:
+                if any(gpxpy.geo.haversine_distance(*current_point, *lift) < 50 for lift in lift_end_coordinate_tuples):
                     color = "#4a412a"
                     skiing += 1
                 else:
-                    color=c.get_color(moving_avg[i], coloring_scheme),
-                folium.PolyLine(
-                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=6, color=color).add_to(mymap)
-        print(f'{filename} processed, {joe/len(os.listdir(merge_directory)) * 100:.2f}% done.')
-    joe += 1
+                    color = c.get_color(moving_avg[i], coloring_scheme)
+            else:
+                color = c.get_color(moving_avg[i], coloring_scheme)
 
-# Save the map as an HTML file
-html_content = mymap.get_root().render()
+            segments.append((color, [current_point, next_point]))
 
-# Append Google Analytics code to the HTML content
-google_analytics_code = """
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+        return (segments, skiing)
+    except Exception as e:
+        print(f"Error processing {filename}: {str(e)}")
+        return ([], 0)
 
-  gtag('config', 'G-HLZTNBRD6S');
-</script>
-"""
-
-# google_analytics_code = """
-# <!-- Google tag (gtag.js) -->
-# <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-# <script>
-#   window.dataLayer = window.dataLayer || [];
-#   function gtag(){dataLayer.push(arguments);}
-#   gtag('js', new Date());
-
-#   gtag('config', 'G-HLZTNBRD6S');
-# </script>
-
-# <!-- HTML Content -->
-# <div class="dropdown">
-#     <select onchange="window.location.href = this.value;">
-#         <option value="./index.html">Index</option>
-#         <option value="./index1.html">Index 1</option>
-#         <option value="./index2.html">Index 2</option>
-#         <!-- Add more pages here as needed -->
-#     </select>
-# </div>
-
-# <div id="index" class="page active">Index Page Content</div>
-# <div id="index1" class="page">Index 1 Page Content</div>
-# <div id="index2" class="page">Index 2 Page Content</div>
-# <!-- Add more pages here as needed -->
-# """
-
-
-# Insert the Analytics code just before the closing </head> tag
-html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)
-
-# Write the modified HTML content to a file
-with open("skimap.html", "w", encoding="utf-8") as html_file:
-    html_file.write(html_content)
+def generate_geojson(all_segments):
+    features = []
+    for idx, (color, segment) in enumerate(all_segments):
+        if len(segment) < 2:
+            continue
+            
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[lon, lat] for lat, lon in segment]
+            },
+            "properties": {
+                "color": color,
+                "min_zoom": min_zoom_level,
+                "z_index": idx  # Preserve original order
+            }
+        })
     
-print(skiing)
+    # Split features into chunks and compute chunk bounding boxes
+    file_paths = []
+    num_files = math.ceil(len(features) / max_features_per_file)
+    chunk_bboxes = {}
+
+    for i in range(num_files):
+        start_idx = i * max_features_per_file
+        end_idx = min((i + 1) * max_features_per_file, len(features))
+        chunk = features[start_idx:end_idx]
+        
+        # Calculate bounding box for the chunk
+        all_coords = []
+        for feature in chunk:
+            coords = feature['geometry']['coordinates']
+            all_coords.extend(coords)
+        
+        if all_coords:
+            lons = [c[0] for c in all_coords]
+            lats = [c[1] for c in all_coords]
+            min_lon, min_lat = min(lons), min(lats)
+            max_lon, max_lat = max(lons), max(lats)
+            bbox = [min_lon, min_lat, max_lon, max_lat]
+        else:
+            bbox = [0, 0, 0, 0]
+
+        geojson_path = os.path.join(output_geojson_dir, f"tracks_{i}.geojson")
+        with open(geojson_path, 'w') as f:
+            json.dump({"type": "FeatureCollection", "features": chunk}, f)
+        
+        file_paths.append(geojson_path)
+        chunk_bboxes[os.path.basename(geojson_path)] = bbox
+
+    # Save chunk bounding boxes
+    with open(os.path.join(output_geojson_dir, "chunk_bboxes.json"), 'w') as f:
+        json.dump(chunk_bboxes, f)
+    
+    return file_paths
+
+def generate_map(geojson_paths):
+    # Create map with optimized settings
+    mymap = folium.Map(
+        location=[47.85, 16.01],
+        zoom_start=6,
+        max_zoom=19,
+        prefer_canvas=True,
+        tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attr='Map data © OpenStreetMap contributors'
+    )
+    
+    # Add locate control
+    LocateControl(
+        auto_start=False,
+        strings={"title": "Show my location"},
+        position="topright",
+        locate_options={"enableHighAccuracy": True}
+    ).add_to(mymap)
+
+    # Asynchronous loading with spatial indexing
+    script = f"""
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {{
+        const map = window['{mymap.get_name()}'];
+        const MIN_ZOOM = {min_zoom_level};
+        let loadedFiles = new Set();
+        let lastUpdate = 0;
+        const UPDATE_INTERVAL = 100;
+        const MAX_LOAD_DISTANCE = 0.2;
+        
+        // Layer group for all tracks
+        const trackLayerGroup = L.layerGroup().addTo(map);
+        
+        // Load a single GeoJSON file
+        async function loadGeoJSON(path) {{
+            if (loadedFiles.has(path)) return;
+            
+            try {{
+                const response = await fetch(path);
+                const data = await response.json();
+                
+                const layer = L.geoJSON(data, {{
+                    style: function(feature) {{
+                        return {{
+                            color: feature.properties.color,
+                            weight: 8,
+                            opacity: map.getZoom() >= MIN_ZOOM ? 1 : 0,
+                            zIndex: feature.properties.z_index  // CORRECTED: Set zIndex in style
+                        }};
+                    }},
+                    interactive: false,
+                    pmIgnore: true,
+                    renderer: L.canvas({{ padding: 0.5 }}),
+                }});
+                
+                layer.addTo(trackLayerGroup);
+                loadedFiles.add(path);
+                console.log(`Loaded: ${{path}}`);
+            }} catch (error) {{
+                console.error('Failed to load track file:', path, error);
+            }}
+        }}
+        
+        // Get features in current view
+        async function getFeaturesInView() {{
+            if (map.getZoom() < MIN_ZOOM) return [];
+
+            const bounds = map.getBounds();
+            try {{
+                const response = await fetch('tracks_geojson/chunk_bboxes.json');
+                const chunkBBoxes = await response.json();
+
+                const expandedBounds = L.latLngBounds(
+                    [bounds.getSouth() - MAX_LOAD_DISTANCE, bounds.getWest() - MAX_LOAD_DISTANCE],
+                    [bounds.getNorth() + MAX_LOAD_DISTANCE, bounds.getEast() + MAX_LOAD_DISTANCE]
+                );
+
+                const filesToLoad = [];
+                for (const [file, bbox] of Object.entries(chunkBBoxes)) {{
+                    const chunkBounds = L.latLngBounds(
+                        [bbox[1], bbox[0]],
+                        [bbox[3], bbox[2]]
+                    );
+                    if (expandedBounds.overlaps(chunkBounds)) {{
+                        filesToLoad.push(file);
+                    }}
+                }}
+                return filesToLoad;
+            }} catch (error) {{
+                console.error('Error loading chunk_bboxes.json:', error);
+                return [];
+            }}
+        }}
+        
+        // Load visible features
+        async function loadVisibleFeatures() {{
+            if (map.getZoom() < MIN_ZOOM) return;
+            
+            const filesToLoad = await getFeaturesInView();
+            const loadPromises = filesToLoad.map(path => 
+                loadGeoJSON(`tracks_geojson/${{path}}`)
+            );
+            
+            await Promise.all(loadPromises);
+        }}
+        
+        // Throttled visibility update
+        function throttledUpdateVisibility() {{
+            const now = Date.now();
+            if (now - lastUpdate > UPDATE_INTERVAL) {{
+                updateVisibility();
+                lastUpdate = now;
+            }}
+        }}
+        
+        // Update track visibility
+        function updateVisibility() {{
+            const currentZoom = map.getZoom();
+            const shouldShow = currentZoom >= MIN_ZOOM;
+            
+            trackLayerGroup.eachLayer(layer => {{
+                layer.eachLayer(featureLayer => {{
+                    featureLayer.setStyle({{ opacity: shouldShow ? 1 : 0 }});
+                }});
+            }});
+            
+            if (shouldShow) {{
+                loadVisibleFeatures();
+            }}
+        }}
+        
+        // Initialize
+        map.whenReady(function() {{
+            if (map.getZoom() >= MIN_ZOOM) {{
+                loadVisibleFeatures();
+            }}
+            
+            map.on('zoomend', throttledUpdateVisibility);
+            map.on('moveend', throttledUpdateVisibility);
+            updateVisibility();
+            
+            map.on('movestart', function() {{
+                trackLayerGroup.eachLayer(layer => {{
+                    if (layer._renderer) {{
+                        layer._renderer._container.style.display = 'none';
+                    }}
+                }});
+            }});
+            
+            map.on('moveend', function() {{
+                trackLayerGroup.eachLayer(layer => {{
+                    if (layer._renderer) {{
+                        layer._renderer._container.style.display = 'block';
+                    }}
+                }});
+                throttledUpdateVisibility();
+            }});
+        }});
+    }});
+    </script>
+    """
+    
+    mymap.get_root().html.add_child(folium.Element(script))
+    return mymap
+
+def main():
+    all_segments = []  # Preserve segment order
+    total_skiing = 0
+
+    files = [f for f in os.listdir(merge_directory) if f.endswith(".gpx")]
+    for filename in tqdm(files, desc="Processing tracks"):
+        segments, skiing = process_gpx_file(filename)
+        all_segments.extend(segments)
+        total_skiing += skiing
+
+    geojson_paths = generate_geojson(all_segments)
+    mymap = generate_map(geojson_paths)
+    
+    # Add Google Analytics
+    google_analytics = """
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){{dataLayer.push(arguments);}}
+      gtag('js', new Date());
+      gtag('config', 'G-HLZTNBRD6S');
+    </script>
+    """
+    
+    html_content = mymap.get_root().render()
+    html_content = html_content.replace("</head>", google_analytics + "</head>", 1)
+    
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    print(f"\nTotal skiing segments detected: {total_skiing}")
+    print(f"Generated {len(geojson_paths)} GeoJSON files")
+    print("Map generated: index.html")
+
+if __name__ == "__main__":
+    main()

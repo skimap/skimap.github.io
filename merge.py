@@ -8,11 +8,18 @@ import color as c
 from tqdm import tqdm
 from folium.plugins import LocateControl
 
+# Usage of the index.html
+# Running the index.html file as file:/// in the browser doesn't work
+# Start a localhost in the directory of the project: "python -m http.server 8000"
+
 # Configuration
-merge_directory = "tracks/raw/all"
-coloring_scheme = 1
+#merge_directory = "tracks/raw/all"
+merge_directory = "tracks/processed/all"
+#coloring_scheme = 1
+coloring_scheme = 3
 output_geojson_dir = "tracks_geojson"
 min_zoom_level = 14
+line_width = 3
 max_features_per_file = 2000
 os.makedirs(output_geojson_dir, exist_ok=True)
 
@@ -177,7 +184,7 @@ def generate_map(geojson_paths):
                     style: function(feature) {{
                         return {{
                             color: feature.properties.color,
-                            weight: 8,
+                            weight: {line_width},
                             opacity: map.getZoom() >= MIN_ZOOM ? 1 : 0,
                             zIndex: feature.properties.z_index  // CORRECTED: Set zIndex in style
                         }};

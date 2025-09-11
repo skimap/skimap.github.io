@@ -6,6 +6,8 @@
 # 3: same as 2, but with correct % calculation to max percent 56% (EU)
 # 4: same as 2, but with correct % calculation to max percent 45% (HU)
 
+# TODO allow the user to switch between the colours
+
 import numpy as np
 
 def get_color(rate: float, coloring_scheme: int):

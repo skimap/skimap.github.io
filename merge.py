@@ -1,4 +1,5 @@
 import os
+import shutil
 import folium
 import gpxpy
 import json
@@ -8,6 +9,7 @@ import color as c
 from tqdm import tqdm
 from folium.plugins import LocateControl
 import shapely.geometry as geom
+from geopy.distance import distance as geo_distance
 
 # Usage of the index.html
 # Running the index.html file as file:/// in the browser doesn't work
@@ -31,50 +33,109 @@ for filename in os.listdir(output_geojson_dir):
         os.unlink(file_path)   # remove file or symlink
     elif os.path.isdir(file_path):
         shutil.rmtree(file_path)  # remove subdirectory
+
 # Load lift data
-with open('json/lifts/lifts_e.json') as f:
+with open('json/lifts/lifts_e.json', encoding='utf-8') as f:
     lifts_e = json.load(f)
+# lifts_e expected shape: [[lat, lon], ...] or similar; original code used (lift[1], lift[0])
+# keep the same ordering as you used before:
 lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]
 
 # Load ski area polygons
 with open("json/ski_areas/ski_areas.geojson", encoding="utf-8") as f:
     ski_areas_data = json.load(f)
 
+# (Optional) build a convenience list of (name, shapely_geometry)
 ski_areas = []
-for feature in ski_areas_data["features"]:
-    name = feature["properties"].get("name", "Unknown")
-    shape = geom.shape(feature["geometry"])
-    ski_areas.append((name, shape))
+for feature in ski_areas_data.get("features", []):
+    name = feature.get("properties", {}).get("name", "Unknown")
+    shape_obj = geom.shape(feature["geometry"])
+    ski_areas.append((name, shape_obj))
 
-def assign_ski_area(points):
-    """Assign ski area based on centroid of the track."""
+
+def assign_ski_area(points, max_km=2):
+    """
+    Assign ski area name based on centroid of the track.
+    Returns a string ski area name (or "Unknown").
+    """
     if not points:
         return "Unknown"
+
+    # Build LineString from track points (lon, lat) order for shapely
     line = geom.LineString([(lon, lat) for lat, lon, _ in points])
-    centroid = line.centroid
-    for name, polygon in ski_areas:
-        if polygon.contains(centroid):
-            return name
+    centroid = line.centroid  # shapely Point
+
+    # Iterate features from loaded geojson
+    for feature in ski_areas_data.get("features", []):
+        name = feature.get("properties", {}).get("name", "Unknown")
+        geometry = geom.shape(feature["geometry"])
+
+        # If centroid is inside geometry → match
+        try:
+            if geometry.contains(centroid):
+                return name
+        except Exception:
+            # Some geometries may be invalid; continue gracefully
+            pass
+
+        # Only for Polygon or MultiPolygon → check distance to exterior coordinates
+        if isinstance(geometry, (geom.Polygon, geom.MultiPolygon)):
+            polygons = [geometry] if isinstance(geometry, geom.Polygon) else list(geometry.geoms)
+            # For each polygon, compute min geodesic distance between centroid and polygon exterior coordinates
+            try:
+                poly_min_dists = []
+                for poly in polygons:
+                    # poly.exterior.coords yields sequence of (lon, lat) pairs (shapely uses x=lon, y=lat)
+                    coords = list(poly.exterior.coords)
+                    if not coords:
+                        continue
+                    # compute min distance (in km) from centroid to any vertex on exterior
+                    c_latlon = (centroid.y, centroid.x)
+                    vertex_min = min(
+                        geo_distance(c_latlon, (coord[1], coord[0])).km
+                        for coord in coords
+                    )
+                    poly_min_dists.append(vertex_min)
+
+                if poly_min_dists and min(poly_min_dists) <= max_km:
+                    return name
+            except Exception:
+                # if something unexpected happens (e.g., invalid geometry), skip this feature
+                pass
+
+        # Point geometry: direct distance check
+        elif isinstance(geometry, geom.Point):
+            try:
+                if geo_distance((centroid.y, centroid.x), (geometry.y, geometry.x)).km <= max_km:
+                    return name
+            except Exception:
+                pass
+
+        # Optionally: LineString geometry could be tested similarly (skipped here)
+
+    # Fallback: no match
     return "Unknown"
+
 
 def process_gpx_file(filename):
     try:
         file_path = os.path.join(merge_directory, filename)
-        with open(file_path, 'r') as gpx_file:
+        with open(file_path, 'r', encoding='utf-8') as gpx_file:
             gpx = gpxpy.parse(gpx_file)
 
         points = []
         for track in gpx.tracks:
             for segment in track.segments:
-                points.extend([(p.latitude, p.longitude, p.elevation) for p in segment.points])
+                # ensure p.elevation may be None — keep as None or 0 if you prefer
+                points.extend([(p.latitude, p.longitude, p.elevation if p.elevation is not None else 0) for p in segment.points])
 
         if len(points) < 2:
             return ([], 0, None)
 
-        # Assign ski area once per track
-        ski_area = assign_ski_area(points)
+        # Assign ski area once per track (string)
+        ski_area_name = assign_ski_area(points)
 
-        # --- NEW: compute centroid ---
+        # --- compute centroid ---
         line = geom.LineString([(lon, lat) for lat, lon, _ in points])
         centroid = line.centroid
         centroid_coords = (centroid.y, centroid.x)
@@ -82,14 +143,22 @@ def process_gpx_file(filename):
         # Calculate descent rates and moving average
         descent_rates = []
         for i in range(1, len(points)):
-            distance = gpxpy.geo.haversine_distance(
+            h_dist = gpxpy.geo.haversine_distance(
                 points[i-1][0], points[i-1][1],
                 points[i][0], points[i][1]
             )
             elevation_gain = points[i][2] - points[i-1][2]
-            descent_rates.append(elevation_gain / distance if distance != 0 else 0)
+            descent_rates.append(elevation_gain / h_dist if h_dist != 0 else 0)
 
-        moving_avg = [sum(descent_rates[max(0,i-4):i+1])/5 for i in range(len(descent_rates))]
+        # moving_avg length = len(descent_rates)
+        # use window of 5 (as in original), but careful with short lists
+        window = 5
+        moving_avg = []
+        for i in range(len(descent_rates)):
+            start = max(0, i - (window - 1))
+            window_vals = descent_rates[start:i+1]
+            # avoid division by zero if window_vals empty (shouldn't be)
+            moving_avg.append(sum(window_vals) / window)
 
         # Process segments in order
         segments = []
@@ -103,7 +172,8 @@ def process_gpx_file(filename):
             next_point = (points[i+1][0], points[i+1][1])
 
             # Determine color for this segment
-            if i >= 5 and all(m >= 0 for m in moving_avg[i-5:i]) and moving_avg[i] < 0:
+            if i >= 5 and all(m >= 0 for m in moving_avg[max(0, i-5):i]) and moving_avg[i] < 0:
+                # check proximity to lifts
                 if any(gpxpy.geo.haversine_distance(*current_point, *lift) < 50 for lift in lift_end_coordinate_tuples):
                     color = "#4a412a"
                     skiing += 1
@@ -112,7 +182,8 @@ def process_gpx_file(filename):
             else:
                 color = c.get_color(moving_avg[i], coloring_scheme)
 
-            segments.append((color, [current_point, next_point], ski_area))
+            # segments: (color, [start, end], ski_area_name)
+            segments.append((color, [current_point, next_point], ski_area_name))
 
         return (segments, skiing, centroid_coords)
     except Exception as e:
@@ -125,7 +196,7 @@ def generate_geojson(all_segments):
     for idx, (color, segment, ski_area) in enumerate(all_segments):
         if len(segment) < 2:
             continue
-            
+
         features.append({
             "type": "Feature",
             "geometry": {
@@ -139,23 +210,23 @@ def generate_geojson(all_segments):
                 "z_index": idx
             }
         })
-    
+
     # Split features into chunks and compute chunk bounding boxes
     file_paths = []
-    num_files = math.ceil(len(features) / max_features_per_file)
+    num_files = math.ceil(len(features) / max_features_per_file) if features else 0
     chunk_bboxes = {}
 
     for i in range(num_files):
         start_idx = i * max_features_per_file
         end_idx = min((i + 1) * max_features_per_file, len(features))
         chunk = features[start_idx:end_idx]
-        
+
         # Calculate bounding box for the chunk
         all_coords = []
         for feature in chunk:
             coords = feature['geometry']['coordinates']
             all_coords.extend(coords)
-        
+
         if all_coords:
             lons = [c[0] for c in all_coords]
             lats = [c[1] for c in all_coords]
@@ -166,17 +237,18 @@ def generate_geojson(all_segments):
             bbox = [0, 0, 0, 0]
 
         geojson_path = os.path.join(output_geojson_dir, f"tracks_{i}.geojson")
-        with open(geojson_path, 'w') as f:
-            json.dump({"type": "FeatureCollection", "features": chunk}, f)
-        
+        with open(geojson_path, 'w', encoding='utf-8') as f:
+            json.dump({"type": "FeatureCollection", "features": chunk}, f, ensure_ascii=False)
+
         file_paths.append(geojson_path)
         chunk_bboxes[os.path.basename(geojson_path)] = bbox
 
     # Save chunk bounding boxes
-    with open(os.path.join(output_geojson_dir, "chunk_bboxes.json"), 'w') as f:
-        json.dump(chunk_bboxes, f)
-    
+    with open(os.path.join(output_geojson_dir, "chunk_bboxes.json"), 'w', encoding='utf-8') as f:
+        json.dump(chunk_bboxes, f, ensure_ascii=False)
+
     return file_paths
+
 
 def generate_map(geojson_paths, centroids):
     # Create map with optimized settings
@@ -189,30 +261,6 @@ def generate_map(geojson_paths, centroids):
         attr='Map data © OpenStreetMap contributors'
     )
 
-    # # Add ski area polygons (orange outline, transparent fill)
-    # with open("json/ski_areas/ski_areas.geojson", encoding="utf-8") as f:
-    #     ski_area_json = json.load(f)
-    # folium.GeoJson(
-    #     ski_area_json,
-    #     name="Ski Areas",
-    #     style_function=lambda x: {
-    #         "color": "orange",
-    #         "weight": 2,
-    #         "fillOpacity": 0.05
-    #     }
-    # ).add_to(mymap)
-
-    # # Add centroid markers (dark brown "X")
-    # for ctd in centroids:
-    #     lat, lon = ctd["coords"]
-    #     folium.Marker(
-    #         location=[lat, lon],
-    #         icon=folium.DivIcon(
-    #             html=f'<div style="color:#4a2f1c;font-size:14px;font-weight:bold;">X</div>'
-    #         ),
-    #         tooltip=f"Centroid ({ctd['ski_area']})"
-    #     ).add_to(mymap)
-    
     # Add locate control
     LocateControl(
         auto_start=False,
@@ -317,7 +365,10 @@ def generate_map(geojson_paths, centroids):
             // Zoom to ski area polygon
             if (selectedArea !== "all" && skiAreas[selectedArea]) {{
                 const layer = L.geoJSON(skiAreas[selectedArea]);
-                map.fitBounds(layer.getBounds(), {{ maxZoom: 13 }});
+                map.fitBounds(layer.getBounds(), {{ maxZoom: MIN_ZOOM }});
+                if (map.getZoom() < MIN_ZOOM) {{
+                    map.setZoom(MIN_ZOOM);
+                }}
             }}
         }});
         
@@ -402,10 +453,11 @@ def generate_map(geojson_paths, centroids):
     mymap.get_root().html.add_child(folium.Element(script))
     return mymap
 
+
 def main():
     all_segments = []  # Preserve segment order
     total_skiing = 0
-    centroids = []     # --- NEW ---
+    centroids = []
 
     files = [f for f in os.listdir(merge_directory) if f.endswith(".gpx")]
     for filename in tqdm(files, desc="Processing tracks"):
@@ -413,32 +465,37 @@ def main():
         all_segments.extend(segments)
         total_skiing += skiing
         if centroid:
-            centroids.append({"ski_area": assign_ski_area([]), "coords": centroid})
+            # get ski_area name again for centroid listing (if desired)
+            # but better to use the ski_area attached to segments if you want accurate association
+            # here we compute assignment once more from centroid points (or skip)
+            # simplest: derive from segments if available
+            centroids.append({"coords": centroid})
 
     geojson_paths = generate_geojson(all_segments)
     mymap = generate_map(geojson_paths, centroids)
-    
+
     # Add Google Analytics
     google_analytics = """
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){{dataLayer.push(arguments);}}
+      function gtag(){dataLayer.push(arguments)}
       gtag('js', new Date());
       gtag('config', 'G-HLZTNBRD6S');
     </script>
     """
-    
+
     html_content = mymap.get_root().render()
     html_content = html_content.replace("</head>", google_analytics + "</head>", 1)
-    
+
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
 
     print(f"\nTotal skiing segments detected: {total_skiing}")
     print(f"Generated {len(geojson_paths)} GeoJSON files")
     print("Map generated: index.html")
+
 
 if __name__ == "__main__":
     main()

@@ -79,18 +79,16 @@ def assign_ski_area(points, max_km=2):
             pass
 
         # Only for Polygon or MultiPolygon → check distance to exterior coordinates
-        if isinstance(geometry, (geom.Polygon, geom.MultiPolygon)):
-            polygons = [geometry] if isinstance(geometry, geom.Polygon) else list(geometry.geoms)
-            # For each polygon, compute min geodesic distance between centroid and polygon exterior coordinates
-            try:
+        try:
+            if isinstance(geometry, (geom.Polygon, geom.MultiPolygon)):
+                polygons = [geometry] if isinstance(geometry, geom.Polygon) else list(geometry.geoms)
+                # For each polygon, compute min geodesic distance between centroid and polygon exterior coordinates
                 poly_min_dists = []
+                c_latlon = (centroid.y, centroid.x)
                 for poly in polygons:
-                    # poly.exterior.coords yields sequence of (lon, lat) pairs (shapely uses x=lon, y=lat)
                     coords = list(poly.exterior.coords)
                     if not coords:
                         continue
-                    # compute min distance (in km) from centroid to any vertex on exterior
-                    c_latlon = (centroid.y, centroid.x)
                     vertex_min = min(
                         geo_distance(c_latlon, (coord[1], coord[0])).km
                         for coord in coords
@@ -99,17 +97,17 @@ def assign_ski_area(points, max_km=2):
 
                 if poly_min_dists and min(poly_min_dists) <= max_km:
                     return name
-            except Exception:
-                # if something unexpected happens (e.g., invalid geometry), skip this feature
-                pass
+        except Exception:
+            # if something unexpected happens (e.g., invalid geometry), skip this feature
+            pass
 
         # Point geometry: direct distance check
-        elif isinstance(geometry, geom.Point):
-            try:
+        try:
+            if isinstance(geometry, geom.Point):
                 if geo_distance((centroid.y, centroid.x), (geometry.y, geometry.x)).km <= max_km:
                     return name
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # Optionally: LineString geometry could be tested similarly (skipped here)
 
@@ -250,8 +248,8 @@ def generate_geojson(all_segments):
     return file_paths
 
 
-def generate_map(geojson_paths, centroids):
-    # Create map with optimized settings
+def generate_map(geojson_paths, centroids, initial_available_areas):
+    # initial_available_areas: list of ski_area names that have tracks (populated in Python)
     mymap = folium.Map(
         location=[47.85, 16.01],
         zoom_start=6,
@@ -286,8 +284,11 @@ def generate_map(geojson_paths, centroids):
 
     ski_area_js = json.dumps({
         f["properties"].get("name", "Unknown"): f["geometry"]
-        for f in ski_area_json["features"]
-    })
+        for f in ski_area_json.get("features", [])
+    }, ensure_ascii=False)
+
+    # initial available areas JSON
+    initial_available_areas_js = json.dumps(initial_available_areas, ensure_ascii=False)
 
     # Asynchronous loading with spatial indexing
     script = f"""
@@ -301,20 +302,48 @@ def generate_map(geojson_paths, centroids):
         const MAX_LOAD_DISTANCE = 0.2;
         const skiAreas = {ski_area_js};
 
+        // start with areas found in Python (tracks processed server-side)
+        const initialAvailableAreas = {initial_available_areas_js};
+
         // Layer group for all tracks
         const trackLayerGroup = L.layerGroup().addTo(map);
-        let availableAreas = new Set();
-        
+
+        // availableAreas will be used to populate selector immediately and can be extended later
+        let availableAreas = new Set(initialAvailableAreas);
+
+        // Populate selector immediately from initialAvailableAreas
+        function populateSelectorInitial() {{
+            const selector = document.getElementById("area");
+            // ensure "all" exists already
+            const existing = new Set(Array.from(selector.options).map(o => o.value));
+            initialAvailableAreas.forEach(area => {{
+                if (!existing.has(area)) {{
+                    const opt = document.createElement("option");
+                    opt.value = area;
+                    opt.textContent = area;
+                    selector.appendChild(opt);
+                }}
+            }});
+        }}
+
+        populateSelectorInitial();
+
         // Load a single GeoJSON file
         async function loadGeoJSON(path) {{
             if (loadedFiles.has(path)) return;
-            
+
             try {{
                 const response = await fetch(path);
                 const data = await response.json();
 
-                data.features.forEach(f => availableAreas.add(f.properties.ski_area));
-                
+                // Add any new areas from this chunk to availableAreas and selector
+                data.features.forEach(f => {{
+                    if (f && f.properties && f.properties.ski_area) {{
+                        availableAreas.add(f.properties.ski_area);
+                    }}
+                }});
+                updateSelectorFromSet();
+
                 const layer = L.geoJSON(data, {{
                     filter: function(feature) {{
                         const selectedArea = document.getElementById("area").value;
@@ -332,20 +361,19 @@ def generate_map(geojson_paths, centroids):
                     pmIgnore: true,
                     renderer: L.canvas({{ padding: 0.5 }}),
                 }});
-                
+
                 layer.addTo(trackLayerGroup);
                 loadedFiles.add(path);
-                updateSelector();
                 console.log(`Loaded: ${{path}}`);
             }} catch (error) {{
                 console.error('Failed to load track file:', path, error);
             }}
         }}
-        
-        function updateSelector() {{
+
+        function updateSelectorFromSet() {{
             const selector = document.getElementById("area");
             const existing = new Set(Array.from(selector.options).map(o => o.value));
-            availableAreas.forEach(area => {{
+            Array.from(availableAreas).sort().forEach(area => {{
                 if (!existing.has(area)) {{
                     const opt = document.createElement("option");
                     opt.value = area;
@@ -371,7 +399,7 @@ def generate_map(geojson_paths, centroids):
                 }}
             }}
         }});
-        
+
         // Get features in current view
         async function getFeaturesInView() {{
             if (map.getZoom() < MIN_ZOOM) return [];
@@ -401,17 +429,17 @@ def generate_map(geojson_paths, centroids):
                 return [];
             }}
         }}
-        
+
         // Load visible features
         async function loadVisibleFeatures() {{
             if (map.getZoom() < MIN_ZOOM) return;
             const filesToLoad = await getFeaturesInView();
-            const loadPromises = filesToLoad.map(path => 
+            const loadPromises = filesToLoad.map(path =>
                 loadGeoJSON(`tracks_geojson/${{path}}`)
             );
             await Promise.all(loadPromises);
         }}
-        
+
         // Throttled visibility update
         function throttledUpdateVisibility() {{
             const now = Date.now();
@@ -420,23 +448,23 @@ def generate_map(geojson_paths, centroids):
                 lastUpdate = now;
             }}
         }}
-        
+
         // Update track visibility
         function updateVisibility() {{
             const currentZoom = map.getZoom();
             const shouldShow = currentZoom >= MIN_ZOOM;
-            
+
             trackLayerGroup.eachLayer(layer => {{
                 layer.eachLayer(featureLayer => {{
                     featureLayer.setStyle({{ opacity: shouldShow ? 1 : 0 }});
                 }});
             }});
-            
+
             if (shouldShow) {{
                 loadVisibleFeatures();
             }}
         }}
-        
+
         // Initialize
         map.whenReady(function() {{
             if (map.getZoom() >= MIN_ZOOM) {{
@@ -449,7 +477,7 @@ def generate_map(geojson_paths, centroids):
     }});
     </script>
     """
-    
+
     mymap.get_root().html.add_child(folium.Element(script))
     return mymap
 
@@ -465,14 +493,13 @@ def main():
         all_segments.extend(segments)
         total_skiing += skiing
         if centroid:
-            # get ski_area name again for centroid listing (if desired)
-            # but better to use the ski_area attached to segments if you want accurate association
-            # here we compute assignment once more from centroid points (or skip)
-            # simplest: derive from segments if available
             centroids.append({"coords": centroid})
 
+    # Build initial list of ski areas that have at least one segment
+    used_ski_areas = sorted({ski_area for (_, _, ski_area) in all_segments if ski_area})
+
     geojson_paths = generate_geojson(all_segments)
-    mymap = generate_map(geojson_paths, centroids)
+    mymap = generate_map(geojson_paths, centroids, used_ski_areas)
 
     # Add Google Analytics
     google_analytics = """

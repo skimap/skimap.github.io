@@ -285,6 +285,7 @@ def generate_map(geojson_paths, centroids, initial_available_areas):
     ski_area_js = json.dumps({
         f["properties"].get("name", "Unknown"): f["geometry"]
         for f in ski_area_json.get("features", [])
+        if f["properties"].get("name", "Unknown") in initial_available_areas
     }, ensure_ascii=False)
 
     # initial available areas JSON

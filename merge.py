@@ -10,6 +10,7 @@ from tqdm import tqdm
 from folium.plugins import LocateControl
 import shapely.geometry as geom
 from geopy.distance import distance as geo_distance
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ---------------------------
 # Configuration
@@ -20,7 +21,7 @@ output_geojson_dir = "tracks_geojson"
 min_zoom_level = 14
 line_width = 3
 max_features_per_file = 2000
-mode = "append"   # "append" vagy "clean" (alapértelmezett: "append")
+mode = "clean"   # "append" vagy "clean" (alapértelmezett: "append")
 
 # Paths for metadata files
 chunk_bboxes_file = os.path.join(output_geojson_dir, "chunk_bboxes.json")
@@ -529,6 +530,7 @@ def generate_map(geojson_paths, centroids, initial_available_areas):
 # ---------------------------
 # Main
 # ---------------------------
+
 def main():
     all_segments = []
     total_skiing = 0
@@ -536,12 +538,23 @@ def main():
 
     # collect GPX files
     files = [f for f in os.listdir(merge_directory) if f.endswith(".gpx")]
-    for filename in tqdm(files, desc="Processing tracks"):
-        segments, skiing, centroid = process_gpx_file(filename)
-        all_segments.extend(segments)
-        total_skiing += skiing
-        if centroid:
-            centroids.append({"coords": centroid})
+
+    # Number of worker processes (set manually or use all cores)
+    num_workers = os.cpu_count() or 4  
+
+    # Use ProcessPoolExecutor for parallel CPU work
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(process_gpx_file, filename): filename for filename in files}
+
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing tracks"):
+            try:
+                segments, skiing, centroid = future.result()
+                all_segments.extend(segments)
+                total_skiing += skiing
+                if centroid:
+                    centroids.append({"coords": centroid})
+            except Exception as e:
+                print(f"Error in {futures[future]}: {e}")
 
     # used ski areas from this run (exclude Unknown)
     used_ski_areas = sorted({ski_area for (_, _, ski_area) in all_segments if ski_area and ski_area != "Unknown"})
@@ -584,6 +597,7 @@ def main():
     print("Map generated: index.html")
     print(f"Saved ski areas to: {ski_areas_file}")
     print(f"Saved chunk bboxes to: {chunk_bboxes_file}")
+
 
 if __name__ == "__main__":
     main()

@@ -432,13 +432,13 @@ def generate_map(geojson_paths, centroids, initial_available_areas):
 
     selector_html = """
     <div id="ski-selector" style="position:absolute;top:10px;right:50px;z-index:1000;background:white;padding:5px;border-radius:8px;">
-        <label for="area">Ski Area:</label>
+        <label for="area">Síterep:</label>
         <select id="area">
-            <option value="all">All</option>
+            <option value="all">Minden</option>
         </select>
     </div>
     <div id="scheme-selector" style="position:absolute;top:80px;right:50px;z-index:1000;background:white;padding:5px;border-radius:8px;">
-        <label for="scheme">Color Scheme:</label>
+        <label for="scheme">Pályaszínek:</label>
         <select id="scheme">
             <option value="3">EU</option>
             <option value="4">HU</option>

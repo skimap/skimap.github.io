@@ -162,37 +162,7 @@ def get_color(rate: float, coloring_scheme: int):
     except Exception:
         rate_val = 0.0
 
-    if coloring_scheme == 1:
-        if rate_val >= 0:
-            return '#80808020'
-        elif rate_val >= -0.15:
-            return 'green'
-        elif rate_val >= -0.29:
-            return 'blue'
-        elif rate_val >= -0.45:
-            return 'red'
-        else:
-            return 'black'
-    if coloring_scheme == 2:
-        if rate_val >= 0:
-            return '#80808080'
-        elif rate_val >= -0.07:
-            return '#48B748'    # light green
-        elif rate_val >= -0.15:
-            return '#006400'    # dark green
-        elif rate_val >= -0.20:
-            return '#32A2D9'    # light blue
-        elif rate_val >= -0.25:
-            return '#0000FF'    # blue
-        elif rate_val >= -0.3:
-            return '#800080'    # purple
-        elif rate_val >= -0.37:
-            return 'red'
-        elif rate_val >= -0.45:
-            return 'darkred'
-        else:
-            return 'black'
-    if coloring_scheme == 3:    # 100% is 56°, European colors
+    if coloring_scheme == 1:    # 100% is 56°, European colors
         # alpha: mapping from rate (tangent) to degrees
         alpha = np.arctan(rate_val) * 2 / np.pi * 90
         ski_slope_rate = alpha / 56
@@ -214,7 +184,7 @@ def get_color(rate: float, coloring_scheme: int):
             return 'darkred'
         else:
             return 'black'
-    if coloring_scheme == 4:    # 100% is 45°, Hungarian colors
+    if coloring_scheme == 2:    # 100% is 45°, Hungarian colors
         alpha = np.arctan(rate_val) * 2 / np.pi * 90
         ski_slope_rate = alpha / 45
         if ski_slope_rate >= 0:
@@ -299,12 +269,10 @@ def process_gpx_file(filename):
 
             val = moving_avg[i]
 
-            # compute all 4 scheme colors using Python get_color
+            # compute 2 scheme colors using Python get_color
             scheme_colors = {
                 "scheme1": get_color(val, 1),
                 "scheme2": get_color(val, 2),
-                "scheme3": get_color(val, 3),
-                "scheme4": get_color(val, 4),
             }
 
             # optional skiing detection (idéző logika megtartva: ha korábban pozitív volt majd hirtelen negatív és közel lift)
@@ -340,8 +308,6 @@ def generate_geojson(all_segments):
             "properties": {
                 "scheme1": colors.get("scheme1"),
                 "scheme2": colors.get("scheme2"),
-                "scheme3": colors.get("scheme3"),
-                "scheme4": colors.get("scheme4"),
                 "ski_area": ski_area,
                 "min_zoom": min_zoom_level,
                 "z_index": idx
@@ -440,8 +406,8 @@ def generate_map(geojson_paths, centroids, initial_available_areas):
     <div id="scheme-selector" style="position:absolute;top:80px;right:50px;z-index:1000;background:white;padding:5px;border-radius:8px;">
         <label for="scheme">Pályaszínek:</label>
         <select id="scheme">
-            <option value="3">EU</option>
-            <option value="4">HU</option>
+            <option value="1">EU</option>
+            <option value="2">HU</option>
         </select>
     </div>
     """

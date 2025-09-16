@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_ef498e6004a81a0a84eac34e00c1c9d5 {
+                #map_21114c0494e2dc7651fcbfec261e5e6c {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -74,15 +74,15 @@
     <div id="scheme-selector" style="position:absolute;top:80px;right:50px;z-index:1000;background:white;padding:5px;border-radius:8px;">
         <label for="scheme">Pályaszínek:</label>
         <select id="scheme">
-            <option value="3">EU</option>
-            <option value="4">HU</option>
+            <option value="1">EU</option>
+            <option value="2">HU</option>
         </select>
     </div>
     
     
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const map = window['map_ef498e6004a81a0a84eac34e00c1c9d5'];
+        const map = window['map_21114c0494e2dc7651fcbfec261e5e6c'];
         const MIN_ZOOM = 14;
         const lineWidth = 3;
         let loadedFiles = new Set();
@@ -248,14 +248,14 @@
     </script>
     
     
-            <div class="folium-map" id="map_ef498e6004a81a0a84eac34e00c1c9d5" ></div>
+            <div class="folium-map" id="map_21114c0494e2dc7651fcbfec261e5e6c" ></div>
         
 </body>
 <script>
     
     
-            var map_ef498e6004a81a0a84eac34e00c1c9d5 = L.map(
-                "map_ef498e6004a81a0a84eac34e00c1c9d5",
+            var map_21114c0494e2dc7651fcbfec261e5e6c = L.map(
+                "map_21114c0494e2dc7651fcbfec261e5e6c",
                 {
                     center: [47.85, 16.01],
                     crs: L.CRS.EPSG3857,
@@ -272,7 +272,7 @@
 
         
     
-            var tile_layer_9aee778dc7d1937c4d6ea468aed23a0e = L.tileLayer(
+            var tile_layer_2227e14984baed5e9140eddaf5624ed4 = L.tileLayer(
                 "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {
   "minZoom": 0,
@@ -289,12 +289,12 @@
             );
         
     
-            tile_layer_9aee778dc7d1937c4d6ea468aed23a0e.addTo(map_ef498e6004a81a0a84eac34e00c1c9d5);
+            tile_layer_2227e14984baed5e9140eddaf5624ed4.addTo(map_21114c0494e2dc7651fcbfec261e5e6c);
         
     
-            var locate_control_4046cc89145e913f37037a25db9fffe0 = L.control.locate(
+            var locate_control_87d460973086dbd0bffe895ed2c7513c = L.control.locate(
                 {"locate_options": {"enableHighAccuracy": true}, "position": "topright", "strings": {"title": "Show my location"}}
-            ).addTo(map_ef498e6004a81a0a84eac34e00c1c9d5);
+            ).addTo(map_21114c0494e2dc7651fcbfec261e5e6c);
             
         
 </script>

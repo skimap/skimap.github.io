@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
-import folium
-import gpxpy
+import shutil
 import json
 import math
-from collections import defaultdict
-import color as c
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
+import gpxpy
+import numpy as np
+import shapely.geometry as geom
+from geopy.distance import distance as geo_distance
 from folium.plugins import LocateControl
 from PIL import Image, ImageDraw
 import numpy as np

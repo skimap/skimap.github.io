@@ -318,6 +318,7 @@ def main():
         f.write(mymap.get_root().render().replace("</head>", """
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
         <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9589673596142969"crossorigin="anonymous"></script>
         <style>.leaflet-tile{image-rendering:pixelated}.ski-resort-dropdown{font-size:14px;padding:8px;max-width:300px}@media(max-width:768px){.ski-resort-dropdown{font-size:11px!important;padding:4px!important;max-width:150px!important}}</style>
         </head>""", 1))
     print("Done! Open index.html.")

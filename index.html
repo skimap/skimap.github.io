@@ -5,12 +5,10 @@
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
     <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
@@ -19,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_80e071152a418a5b4516af8f345a1e00 {
+                #map_2db2c33c997f1c08c81467d17119626b {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -28,29 +26,6 @@
                 }
                 .leaflet-container { font-size: 1rem; }
             </style>
-
-            <style>html, body {
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-            </style>
-
-            <style>#map {
-                position:absolute;
-                top:0;
-                bottom:0;
-                right:0;
-                left:0;
-                }
-            </style>
-
-            <script>
-                L_NO_TOUCH = false;
-                L_DISABLE_3D = false;
-            </script>
-
 
             <style>html, body {
                 width: 100%;
@@ -95,43 +70,44 @@
     .leaflet-container {
         background: #f0f0f0;
     }
+    
+    /* Desktop (Default) Styling */
+    .ski-resort-dropdown {
+        font-size: 14px;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        background: white;
+        max-width: 300px;
+        width: auto;
+    }
+
+    /* Mobile Styling (Max width 768px) */
+    @media screen and (max-width: 768px) {
+        .ski-resort-dropdown {
+            font-size: 11px !important;    
+            padding: 4px !important;
+            max-width: 150px !important;
+            height: 30px;
+        }
+    }
     </style>
     </head>
 <body>
     
     
-    <div id="ski-selector" style="position:absolute;top:10px;right:50px;z-index:1000;background:white;padding:5px;border-radius:8px;">
-        <label for="area">Síterep:</label>
-        <select id="area">
-            <option value="all">Minden</option>
-        </select>
-    </div>
-    <div id="scheme-selector" style="position:absolute;top:80px;right:50px;z-index:1000;background:white;padding:5px;border-radius:8px;">
-        <label for="scheme">Pályaszínek:</label>
-        <select id="scheme">
-            <option value="1">EU</option>
-            <option value="2">HU</option>
-        </select>
-    </div>
-    
-    
-            <div class="folium-map" id="map_80e071152a418a5b4516af8f345a1e00" ></div>
+            <div class="folium-map" id="map_2db2c33c997f1c08c81467d17119626b" ></div>
         
 </body>
 <script>
     
     
-            var map_80e071152a418a5b4516af8f345a1e00 = L.map(
-                "map_80e071152a418a5b4516af8f345a1e00",
+            var map_2db2c33c997f1c08c81467d17119626b = L.map(
+                "map_2db2c33c997f1c08c81467d17119626b",
                 {
                     center: [47.85, 16.01],
                     crs: L.CRS.EPSG3857,
-                    ...{
-  "zoom": 6,
-  "zoomControl": true,
-  "preferCanvas": true,
-}
-
                     ...{
   "zoom": 6,
   "zoomControl": true,
@@ -145,7 +121,7 @@
 
         
     
-            var tile_layer_8262dfa52d6accda4ff2ecc40bd08a96 = L.tileLayer(
+            var tile_layer_befb9aaf7a276f8672bc49e8438c61ef = L.tileLayer(
                 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
                 {
   "minZoom": 0,
@@ -162,17 +138,17 @@
             );
         
     
-            tile_layer_8262dfa52d6accda4ff2ecc40bd08a96.addTo(map_80e071152a418a5b4516af8f345a1e00);
+            tile_layer_befb9aaf7a276f8672bc49e8438c61ef.addTo(map_2db2c33c997f1c08c81467d17119626b);
         
     
-            var locate_control_8643111967cd1323e29f3a079f5a2449 = L.control.locate(
+            var locate_control_8e9ff9cd7fc4a3cd057408e6c74a4c65 = L.control.locate(
                 {"position": "topright", "strings": {"title": "Show my location"}}
-            ).addTo(map_80e071152a418a5b4516af8f345a1e00);
+            ).addTo(map_2db2c33c997f1c08c81467d17119626b);
             
         
     
-            var tile_layer_25491a8f62a78d285d470cdc0d10ae25 = L.tileLayer(
-                "tiles/{z}/{x}/{y}.png?1766100381",
+            var tile_layer_932e112829eab82a17f2187ed65acbe0 = L.tileLayer(
+                "tiles/{z}/{x}/{y}.png?1766102738",
                 {
   "minZoom": 10,
   "maxZoom": 19,
@@ -191,12 +167,12 @@
             );
         
     
-            tile_layer_25491a8f62a78d285d470cdc0d10ae25.addTo(map_80e071152a418a5b4516af8f345a1e00);
+            tile_layer_932e112829eab82a17f2187ed65acbe0.addTo(map_2db2c33c997f1c08c81467d17119626b);
         
     
-        var map = map_80e071152a418a5b4516af8f345a1e00;
-        var skiLayer = tile_layer_25491a8f62a78d285d470cdc0d10ae25;
-        var skiAreas = {"Kaprun - Kitzsteinhorn/Maiskogel": [47.20312776971599, 12.686502444043992], "Skigebiet Gro\u00dfglockner Heiligenblut": [47.056605453820744, 12.86800140303002], "Nassfeld, Mokrine": [46.57657363303895, 13.264894606453792], "Kreischberg": [47.070446147738735, 14.052838279065128], "S\u00edar\u00e9na Vibe Park": [47.20996147481712, 17.930408449527203], "Familienschiberg St. Jakob im Walde": [47.478623904537905, 15.785624047127378], "Skicircus Saalbach-Hinterglemm Leogang Fieberbrunn": [47.39541123590796, 12.620368124948548], "Schmittenh\u00f6he Zell am See": [47.32831900108166, 12.753990257779215], "M\u00f6lltaler Gletscher": [47.0353606831537, 13.015585940966446], "Corviglia": [46.50938999942196, 9.810181305273298], "Skigebiet M\u00f6nichkirchen - Mariensee": [47.520410316562, 16.00224313566937], "Skigebiet Stuhleck - Semmering": [47.58792056852601, 15.770042732145637], "S\u00f6lden": [46.95277429089467, 10.969820300622176], "Nagyvill\u00e1m S\u00edp\u00e1lya Visegr\u00e1d": [47.79871670830996, 18.991211993736158], "Donovaly": [48.871004237443664, 19.223816233458702], "S\u00edpark M\u00e1traszentistv\u00e1n": [47.923055691491214, 19.870179099647082], "\u0160trbsk\u00e9 Pleso": [49.134163631832315, 20.051653078193475], "Skigebiet Garmisch-Classic": [47.46009432312931, 11.082465172518962], "SkiWelt Wilder Kaiser - Brixental": [47.47283696100205, 12.237414652970783], "Silvretta Arena Ischgl/Samnaun": [46.977009524553786, 10.323650572368614], "Snowbird": [40.565297201140616, -111.65130714911297], "Jasna Low Tatras": [48.955800267258915, 19.590693350475277], "Wildkogel": [47.27818849703417, 12.279650996812657], "Zillertal Arena": [47.246274524664116, 12.009245952367397], "Weinebene": [46.83795568070419, 15.013345272793222], "KitzSki": [47.373924909471604, 12.364833664105694], "Serfaus Fiss Ladis": [47.048511300930244, 10.561008149431345], "Turracher H\u00f6he": [46.923470470932344, 13.87876305503465], "Alta Badia": [46.538184733100145, 11.900306651286531], "Obertauern": [47.25398588808205, 13.55659375895383], "Hintertuxer Gletscher": [47.08034897622914, 11.664684070555708], "Hochk\u00f6nig": [47.38303566558363, 12.98102123428817], "Shuttleberg Flachauwinkl-Kleinarl": [47.306688080976855, 13.346508051122589], "Gro\u00dfarltal-Dorfgastein": [47.23762833562716, 13.155416847365515], "Planai": [47.378569173942374, 13.690578049617933]};
+        var map = map_2db2c33c997f1c08c81467d17119626b;
+        var skiLayer = tile_layer_932e112829eab82a17f2187ed65acbe0;
+        var skiAreas = {"Kaprun - Kitzsteinhorn/Maiskogel": [47.203127769715984, 12.686502444043992], "Skigebiet Gro\u00dfglockner Heiligenblut": [47.056605453820744, 12.86800140303002], "Nassfeld, Mokrine": [46.57657363303895, 13.264894606453792], "Kreischberg": [47.070446147738735, 14.052838279065128], "S\u00edar\u00e9na Vibe Park": [47.20996147481712, 17.930408449527203], "Familienschiberg St. Jakob im Walde": [47.478623904537905, 15.785624047127378], "Skicircus Saalbach-Hinterglemm Leogang Fieberbrunn": [47.39541123590796, 12.620368124948547], "Corviglia": [46.50938999942196, 9.810181305273298], "Schmittenh\u00f6he Zell am See": [47.32831900108166, 12.753990257779215], "M\u00f6lltaler Gletscher": [47.0353606831537, 13.015585940966446], "Skigebiet M\u00f6nichkirchen - Mariensee": [47.520410316562, 16.00224313566937], "Skigebiet Stuhleck - Semmering": [47.58792056852601, 15.770042732145637], "S\u00f6lden": [46.95277429089467, 10.969820300622176], "Nagyvill\u00e1m S\u00edp\u00e1lya Visegr\u00e1d": [47.798716708309954, 18.991211993736158], "Snowbird": [40.565297201140616, -111.65130714911297], "Donovaly": [48.871004237443664, 19.223816233458702], "S\u00edpark M\u00e1traszentistv\u00e1n": [47.92305569149122, 19.87017909964708], "\u0160trbsk\u00e9 Pleso": [49.134163631832315, 20.051653078193475], "Skigebiet Garmisch-Classic": [47.46009432312931, 11.082465172518962], "SkiWelt Wilder Kaiser - Brixental": [47.47283696100205, 12.237414652970783], "Silvretta Arena Ischgl/Samnaun": [46.977009524553786, 10.323650572368614], "Jasna Low Tatras": [48.955800267258915, 19.590693350475277], "Wildkogel": [47.27818849703417, 12.279650996812657], "Zillertal Arena": [47.246274524664116, 12.009245952367397], "Weinebene": [46.83795568070419, 15.013345272793222], "KitzSki": [47.373924909471604, 12.364833664105694], "Serfaus Fiss Ladis": [47.048511300930244, 10.561008149431345], "Turracher H\u00f6he": [46.923470470932344, 13.878763055034652], "Alta Badia": [46.538184733100145, 11.900306651286531], "Hintertuxer Gletscher": [47.08034897622914, 11.664684070555708], "Obertauern": [47.25398588808205, 13.55659375895383], "Hochk\u00f6nig": [47.38303566558363, 12.98102123428817], "Shuttleberg Flachauwinkl-Kleinarl": [47.306688080976855, 13.346508051122589], "Gro\u00dfarltal-Dorfgastein": [47.23762833562716, 13.155416847365515], "Planai": [47.378569173942374, 13.690578049617933]};
 
         console.log("Ski Map Initialized");
 
@@ -205,7 +181,7 @@
         
         selectorControl.onAdd = function (map) {
             var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML = '<select id="area_selector" style="font-size: 14px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; box-shadow: 0 1px 5px rgba(0,0,0,0.4); background: white;">' + 
+            div.innerHTML = '<select id="area_selector" class="ski-resort-dropdown">' + 
                             '<option value="">Jump to Ski Area...</option><option value="Alta Badia">Alta Badia</option><option value="Corviglia">Corviglia</option><option value="Donovaly">Donovaly</option><option value="Familienschiberg St. Jakob im Walde">Familienschiberg St. Jakob im Walde</option><option value="Großarltal-Dorfgastein">Großarltal-Dorfgastein</option><option value="Hintertuxer Gletscher">Hintertuxer Gletscher</option><option value="Hochkönig">Hochkönig</option><option value="Jasna Low Tatras">Jasna Low Tatras</option><option value="Kaprun - Kitzsteinhorn/Maiskogel">Kaprun - Kitzsteinhorn/Maiskogel</option><option value="KitzSki">KitzSki</option><option value="Kreischberg">Kreischberg</option><option value="Mölltaler Gletscher">Mölltaler Gletscher</option><option value="Nagyvillám Sípálya Visegrád">Nagyvillám Sípálya Visegrád</option><option value="Nassfeld, Mokrine">Nassfeld, Mokrine</option><option value="Obertauern">Obertauern</option><option value="Planai">Planai</option><option value="Schmittenhöhe Zell am See">Schmittenhöhe Zell am See</option><option value="Serfaus Fiss Ladis">Serfaus Fiss Ladis</option><option value="Shuttleberg Flachauwinkl-Kleinarl">Shuttleberg Flachauwinkl-Kleinarl</option><option value="Silvretta Arena Ischgl/Samnaun">Silvretta Arena Ischgl/Samnaun</option><option value="SkiWelt Wilder Kaiser - Brixental">SkiWelt Wilder Kaiser - Brixental</option><option value="Skicircus Saalbach-Hinterglemm Leogang Fieberbrunn">Skicircus Saalbach-Hinterglemm Leogang Fieberbrunn</option><option value="Skigebiet Garmisch-Classic">Skigebiet Garmisch-Classic</option><option value="Skigebiet Großglockner Heiligenblut">Skigebiet Großglockner Heiligenblut</option><option value="Skigebiet Mönichkirchen - Mariensee">Skigebiet Mönichkirchen - Mariensee</option><option value="Skigebiet Stuhleck - Semmering">Skigebiet Stuhleck - Semmering</option><option value="Snowbird">Snowbird</option><option value="Síaréna Vibe Park">Síaréna Vibe Park</option><option value="Sípark Mátraszentistván">Sípark Mátraszentistván</option><option value="Sölden">Sölden</option><option value="Turracher Höhe">Turracher Höhe</option><option value="Weinebene">Weinebene</option><option value="Wildkogel">Wildkogel</option><option value="Zillertal Arena">Zillertal Arena</option><option value="Štrbské Pleso">Štrbské Pleso</option>' + 
                             '</select>';
             L.DomEvent.disableClickPropagation(div);

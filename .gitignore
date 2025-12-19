@@ -20,3 +20,4 @@ ski_renderer/target/release/examples/
 ski_renderer/target/release/incremental/
 main_cython.py
 tiles/
+.env

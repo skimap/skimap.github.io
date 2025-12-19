@@ -22,14 +22,21 @@ from geopy.distance import distance as geo_distance
 import subprocess
 import sys
 
-# Try importing B2SDK for uploading
+# --- Load Environment Variables ---
 try:
-    from b2sdk.v2 import InMemoryAccountInfo, B2Api
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# --- B2 SDK Import ---
+B2_AVAILABLE = False
+try:
+    from b2sdk.v2 import InMemoryAccountInfo, B2Api, LocalFolder, B2Folder, Synchronizer, SyncReport
     B2_AVAILABLE = True
 except ImportError:
-    B2_AVAILABLE = False
+    pass
 
-# NOTE: color is imported here. If you have a local color.py file, keep this. 
 try:
     import color as c
 except ImportError:
@@ -45,101 +52,105 @@ SKI_AREAS_FILE = "json/ski_areas/ski_areas.geojson"
 LIFTS_FILE = "json/lifts/lifts_e.json"
 
 # --- BACKBLAZE B2 CONFIGURATION ---
-# 1. Fill these in with your details
-B2_KEY_ID = "YOUR_KEY_ID_HERE"           # e.g., 0023a...
-B2_APP_KEY = "YOUR_APP_KEY_HERE"         # e.g., K002...
-B2_BUCKET_NAME = "YOUR_BUCKET_NAME"      # e.g., my-ski-map
-# 2. The URL must end with a slash '/'. 
-# Check B2 file info to find your "f00x" subdomain.
-B2_FRIENDLY_URL = "https://f002.backblazeb2.com/file/YOUR_BUCKET_NAME/" 
+B2_KEY_ID = os.getenv("B2_KEY_ID")
+B2_APP_KEY = os.getenv("B2_APP_KEY")
+B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
+B2_FRIENDLY_URL = os.getenv("B2_FRIENDLY_URL")
 
-# Set this to True to use B2 tiles, or False to use local tiles
-USE_REMOTE_TILES = True 
+USE_REMOTE_TILES = bool(B2_FRIENDLY_URL)
 
-# Constants
 EARTH_RADIUS = 6371000
 DEG_TO_RAD = math.pi / 180.0
 
 # -----------------------------------------------------------------------------
-# DATA LOADING
+# B2 OPERATIONS
+# -----------------------------------------------------------------------------
+
+def get_b2_api():
+    """Helper to authenticate and return B2 API and Bucket."""
+    if not B2_AVAILABLE or not B2_KEY_ID or not B2_APP_KEY:
+        return None, None
+    try:
+        info = InMemoryAccountInfo()
+        b2_api = B2Api(info)
+        b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+        return b2_api, bucket
+    except Exception as e:
+        print(f"B2 Auth Error: {e}")
+        return None, None
+
+def configure_cors():
+    """Sets CORS rules on the B2 bucket to allow browser access."""
+    print("Checking B2 CORS permissions...")
+    b2_api, bucket = get_b2_api()
+    if not bucket:
+        print("Skipping CORS config (No Auth).")
+        return
+
+    try:
+        cors_rules = [
+            {
+                "corsRuleName": "allowAny",
+                "allowedOrigins": ["*"],
+                "allowedOperations": ["GET", "HEAD"],
+                "allowedHeaders": ["*"],
+                "maxAgeSeconds": 3600
+            }
+        ]
+        bucket.update(cors_rules=cors_rules)
+        print("✅ CORS rules updated! Map tiles are now public.")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not configure CORS: {e}")
+
+def sync_tiles_to_b2():
+    print("\n--- Starting B2 Sync ---")
+    b2_api, _ = get_b2_api()
+    if not b2_api:
+        print("Cannot sync: B2 Auth failed or keys missing.")
+        return
+
+    try:
+        source_path = os.path.abspath(TILES_OUTPUT_DIR)
+        destination_path_in_bucket = "tiles" 
+
+        source_folder = LocalFolder(source_path)
+        dest_folder = B2Folder(B2_BUCKET_NAME, destination_path_in_bucket, b2_api)
+
+        print(f"Syncing local {source_path} -> B2:/{destination_path_in_bucket}...")
+        
+        synchronizer = Synchronizer(max_workers=20, dry_run=False)
+        reporter = SyncReport(sys.stdout, no_progress=False)
+        
+        synchronizer.sync_folders(
+            source_folder=source_folder,
+            dest_folder=dest_folder,
+            now_millis=int(time.time() * 1000),
+            reporter=reporter, 
+        )
+        print("\n✅ Tile Sync Complete!")
+
+    except Exception as e:
+        print(f"\n❌ B2 Sync Error: {e}")
+
+# -----------------------------------------------------------------------------
+# HELPERS & PROCESSING
 # -----------------------------------------------------------------------------
 
 @lru_cache(maxsize=1)
 def load_lift_data():
     try:
-        with open(LIFTS_FILE) as f:
-            lifts_e = json.load(f)
-        return [(lift[1], lift[0]) for lift in lifts_e]
-    except FileNotFoundError:
-        return []
+        with open(LIFTS_FILE) as f: return [(x[1], x[0]) for x in json.load(f)]
+    except FileNotFoundError: return []
 
 @lru_cache(maxsize=1)
 def load_ski_areas_data():
     try:
-        with open(SKI_AREAS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"features": []}
+        with open(SKI_AREAS_FILE, encoding="utf-8") as f: return json.load(f)
+    except FileNotFoundError: return {"features": []}
 
 lift_end_coordinate_tuples = load_lift_data()
 ski_areas_data = load_ski_areas_data()
-
-# -----------------------------------------------------------------------------
-# B2 UPLOAD WORKER
-# -----------------------------------------------------------------------------
-
-def sync_tiles_to_b2():
-    """Syncs the local 'tiles' folder to the B2 bucket."""
-    if not B2_AVAILABLE:
-        print("Error: b2sdk is not installed. Run 'pip install b2sdk'")
-        return
-
-    print("\n--- Starting B2 Upload ---")
-    print(f"Target Bucket: {B2_BUCKET_NAME}")
-    
-    try:
-        info = InMemoryAccountInfo()
-        b2_api = B2Api(info)
-        b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
-        
-        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-        
-        source_folder = os.path.abspath(TILES_OUTPUT_DIR)
-        destination_folder = "tiles" # Folder name inside the bucket
-
-        print(f"Syncing {source_folder} -> B2:/{destination_folder}...")
-        
-        # Using the synchronize API (like rsync)
-        from b2sdk.v2 import Synchronizer, ScanPolicies
-        
-        # Simple sync policy
-        synchronizer = Synchronizer(
-            max_workers=10,
-            dry_run=False
-        )
-        
-        # Perform the sync
-        with tqdm(desc="Uploading Tiles", unit="files") as pbar:
-            # We construct a simple iterator wrapper to update progress
-            # Note: b2sdk sync is complex to hook into for progress bars perfectly,
-            # so we run it and let it print its own log or just wait.
-            # For simplicity in this script, we just run the sync:
-            synchronizer.sync_folders(
-                source_folder=source_folder,
-                dest_bucket=bucket,
-                dest_folder=destination_folder,
-                now_millis=int(time.time() * 1000),
-                keep_days_or_delete=None,
-            )
-            
-        print("Upload Complete!")
-
-    except Exception as e:
-        print(f"B2 Upload Failed: {e}")
-
-# -----------------------------------------------------------------------------
-# MATH & GEOMETRY
-# -----------------------------------------------------------------------------
 
 @numba.jit(nopython=True)
 def haversine_distance_vectorized(lat1, lon1, lat2, lon2):
@@ -150,148 +161,101 @@ def haversine_distance_vectorized(lat1, lon1, lat2, lon2):
     return EARTH_RADIUS * c
 
 def assign_ski_area(points, max_km=2):
-    if not points or not ski_areas_data.get("features"):
-        return "Unknown"
+    if not points or not ski_areas_data.get("features"): return "Unknown"
     try:
         step = max(1, len(points) // 50)
         sample_points = points[::step]
         line = geom.LineString([(lon, lat) for lat, lon, _ in sample_points])
         centroid = line.centroid
-        
         for feature in ski_areas_data["features"]:
             props = feature.get("properties", {})
-            if not props: continue
-            name = props.get("name")
-            if not name: continue
-
-            try:
-                geometry = geom.shape(feature["geometry"])
-            except Exception: continue
-
-            if geometry.contains(centroid):
-                return name
-
+            if not props or not props.get("name"): continue
+            try: geometry = geom.shape(feature["geometry"])
+            except: continue
+            if geometry.contains(centroid): return props.get("name")
             feature_center = geometry.centroid
-            dist_to_center = geo_distance((centroid.y, centroid.x), (feature_center.y, feature_center.x)).km
-            
-            if dist_to_center < max_km * 2: 
-                if dist_to_center <= max_km:
-                    return name
-    except Exception:
-        pass
+            dist = geo_distance((centroid.y, centroid.x), (feature_center.y, feature_center.x)).km
+            if dist < max_km: return props.get("name")
+    except: pass
     return "Unknown"
-
-# -----------------------------------------------------------------------------
-# PROCESSING WORKER
-# -----------------------------------------------------------------------------
 
 def process_gpx_file_optimized(filename):
     filepath = os.path.join(MERGE_DIRECTORY, filename)
     try:
-        with open(filepath, 'r') as gpx_file:
-            gpx = gpxpy.parse(gpx_file)
-
+        with open(filepath, 'r') as f: gpx = gpxpy.parse(f)
         points = []
-        for track in gpx.tracks:
-            for segment in track.segments:
-                for point in segment.points:
-                    points.append((point.latitude, point.longitude, point.elevation))
-
-        if len(points) < 2:
-            return ([], 0, "Unknown", None)
-
-        try:
-            area_name = assign_ski_area(points)
-            avg_lat = sum(p[0] for p in points) / len(points)
-            avg_lon = sum(p[1] for p in points) / len(points)
-            centroid_coords = (avg_lat, avg_lon)
-        except Exception:
-            area_name = "Unknown"
-            centroid_coords = None
-
-        return (points, 0, area_name, centroid_coords)
-
+        for t in gpx.tracks:
+            for s in t.segments:
+                for p in s.points: points.append((p.latitude, p.longitude, p.elevation))
+        if len(points) < 2: return ([], 0, "Unknown", None)
+        area_name = assign_ski_area(points)
+        avg_lat = sum(p[0] for p in points) / len(points)
+        avg_lon = sum(p[1] for p in points) / len(points)
+        return (points, 0, area_name, (avg_lat, avg_lon))
     except Exception as e:
-        print(f"Error processing {filename}: {str(e)}")
+        print(f"Error {filename}: {e}")
         return ([], 0, "Unknown", None)
 
-# -----------------------------------------------------------------------------
-# MAP GENERATION
-# -----------------------------------------------------------------------------
-
 def generate_optimized_map(ski_areas_map=None):
-    
-    mymap = folium.Map(
-        location=[47.85, 16.01],
-        zoom_start=6,
-        max_zoom=19,
-        prefer_canvas=True,
-        tiles="CartoDB Positron",
-        attr='&copy; OSM &copy; CARTO'
-    )
-    
+    mymap = folium.Map(location=[47.85, 16.01], zoom_start=6, max_zoom=19, prefer_canvas=True, tiles="CartoDB Positron")
     LocateControl(auto_start=False, strings={"title": "Show my location"}, position="topright").add_to(mymap)
     
-    # --- TILE LAYER CONFIGURATION ---
-    import time
-    cache_buster = str(int(time.time()))
-    
-    if USE_REMOTE_TILES:
-        # Construct B2 URL: https://f002.../file/bucket/tiles/{z}/{x}/{y}.png
-        tile_url = f"{B2_FRIENDLY_URL}tiles/{{z}}/{{x}}/{{y}}.png"
-        print(f"Map configured to use remote tiles: {tile_url}")
+    if USE_REMOTE_TILES and B2_FRIENDLY_URL:
+        base_url = B2_FRIENDLY_URL if B2_FRIENDLY_URL.endswith('/') else B2_FRIENDLY_URL + '/'
+        tile_url = f"{base_url}tiles/{{z}}/{{x}}/{{y}}.png"
+        print(f"Using Remote Tiles: {tile_url}")
     else:
-        # Use local relative path
-        tile_url = f'tiles/{{z}}/{{x}}/{{y}}.png?{cache_buster}'
-        print("Map configured to use local tiles.")
+        tile_url = 'tiles/{z}/{x}/{y}.png'
+        print("Using Local Tiles.")
 
     ski_layer = folium.TileLayer(
-        tiles=tile_url,
-        attr='Ski Tracks',
-        name='Ski Tracks',
-        min_zoom=10,
-        max_zoom=19,
-        overlay=True,
-        detectRetina=True,
-        crossOrigin='anonymous', # Crucial for CORS/B2
-        opacity=0.9,
+        tiles=tile_url, attr='Ski Tracks', name='Ski Tracks', min_zoom=10, max_zoom=19, overlay=True,
+        detectRetina=True, crossOrigin='anonymous', opacity=0.9,
+        # We use a transparent 1x1 pixel here as a fallback
         errorTileUrl='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
     )
     ski_layer.add_to(mymap)
     
-    # --- RESORT SELECTOR JS ---
+    # Generate Options HTML in Python
+    options_html = ""
+    areas_js = "{}"
+    
     if ski_areas_map:
         valid_items = {k: v for k, v in ski_areas_map.items() if k and isinstance(k, str)}
         sorted_areas = sorted(valid_items.items())
         areas_js = json.dumps(valid_items)
-        options_html = '<option value="">Jump to Ski Area...</option>'
-        for name, coords in sorted_areas:
+        
+        for name, _ in sorted_areas:
             safe_name = name.replace("'", "&#39;")
-            options_html += f'<option value="{safe_name}">{safe_name}</option>'
-    else:
-        areas_js = "{}"
-        options_html = '<option value="">No areas found</option>'
+            options_html += f'<option value="{safe_name}">{name}</option>'
 
     map_id = mymap.get_name()
     layer_id = ski_layer.get_name()
-
-    js_template = f"""
+    
+    macro = MacroElement()
+    
+    js_content = f"""
     {{% macro script(this, kwargs) %}}
         var map = {map_id};
         var skiLayer = {layer_id};
         var skiAreas = {areas_js};
-        console.log("Ski Map Initialized");
-
-        var selectorControl = L.control({{position: 'topright'}});
-        selectorControl.onAdd = function (map) {{
+        
+        // 1. Create the control
+        var selector = L.control({{position: 'topright'}});
+        
+        // 2. Define onAdd
+        selector.onAdd = function(map) {{
             var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML = '<select id="area_selector" class="ski-resort-dropdown">{options_html}</select>';
-            L.DomEvent.disableClickPropagation(div);
+            div.innerHTML = '<select id="area_selector" class="ski-resort-dropdown"><option value="">Jump to Ski Area...</option>{options_html}</select>';
+            L.DomEvent.disableClickPropagation(div); 
             L.DomEvent.disableScrollPropagation(div);
             return div;
         }};
-        selectorControl.addTo(map);
         
+        // 3. Add to map
+        selector.addTo(map);
+
+        // 4. Add Event Listeners
         var sel = document.getElementById("area_selector");
         if (sel) {{
             sel.addEventListener("change", function(e) {{
@@ -301,129 +265,63 @@ def generate_optimized_map(ski_areas_map=None):
                 }}
             }});
         }}
-        
-        skiLayer.on('tileerror', function(error) {{
-            var img = error.tile;
-            var src = img.src;
-            if (src.includes('&retry=')) return;
-            setTimeout(function() {{
-                var sep = src.includes('?') ? '&' : '?';
-                img.src = src + sep + 'retry=' + Date.now();
-            }}, 1000);
-        }});
-        
-        window.addEventListener("orientationchange", function() {{
-            setTimeout(function(){{ map.invalidateSize(); }}, 200);
+
+        // FIX: No retry loop. Just hide the tile if it fails.
+        skiLayer.on('tileerror', function(e) {{
+            e.tile.style.display = 'none';
         }});
     {{% endmacro %}}
     """
     
-    macro = MacroElement()
-    macro._template = Template(js_template)
+    macro._template = Template(js_content)
     mymap.get_root().add_child(macro)
-    
     return mymap
 
-# -----------------------------------------------------------------------------
-# MAIN
-# -----------------------------------------------------------------------------
-
 def main():
-    parser = argparse.ArgumentParser(description="Generate Ski Map & Upload to B2.")
-    parser.add_argument('--html-only', action='store_true', help="Skip tile generation, regenerate HTML only")
-    parser.add_argument('--upload', action='store_true', help="Upload tiles to Backblaze B2 after generation")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
+    parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
     args = parser.parse_args()
     
-    # 1. Rust Tile Generation
+    # 1. ALWAYS TRY TO CONFIGURE CORS (if keys are present)
+    if B2_AVAILABLE and B2_KEY_ID:
+        configure_cors()
+
+    # 2. GENERATE TILES (Run Rust Renderer)
     if not args.html_only:
-        print("Step 1: Running Rust Renderer...")
+        print("Step 1: Generating Tiles (ski_renderer.exe)...")
         if os.path.exists("ski_renderer.exe"):
-            try:
-                subprocess.run(["ski_renderer.exe"], check=True)
-            except subprocess.CalledProcessError:
-                print("Error: Rust renderer failed.")
-                sys.exit(1)
-        else:
-            print("Warning: ski_renderer.exe not found.")
+            try: subprocess.run(["ski_renderer.exe"], check=True)
+            except: sys.exit("Error: Rust renderer failed.")
+        else: print("Warning: ski_renderer.exe missing.")
+    
+    # 3. UPLOAD TILES
+    if args.update_tiles:
+        sync_tiles_to_b2()
 
-    # 2. Upload to B2 (Optional)
-    if args.upload:
-        if B2_AVAILABLE:
-            sync_tiles_to_b2()
-        else:
-            print("Cannot upload: b2sdk not installed.")
-
-    # 3. Index Resorts
+    # 4. GENERATE HTML
     print("Step 2: Indexing Resorts...")
-    found_ski_areas = defaultdict(list)
-    files = [f for f in os.listdir(MERGE_DIRECTORY) if f.endswith('.gpx')]
+    with ProcessPoolExecutor(max_workers=mp.cpu_count()) as ex:
+        files = [f for f in os.listdir(MERGE_DIRECTORY) if f.endswith('.gpx')]
+        resorts = defaultdict(list)
+        for fut in tqdm(as_completed([ex.submit(process_gpx_file_optimized, f) for f in files]), total=len(files)):
+            _, _, name, center = fut.result()
+            if name != "Unknown" and center: resorts[name].append(center)
     
-    with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
-        futures = {executor.submit(process_gpx_file_optimized, f): f for f in files}
-        for future in tqdm(as_completed(futures), total=len(files), desc="Indexing"):
-            try:
-                _, _, area_name, centroid = future.result()
-                if area_name and area_name != "Unknown" and centroid is not None:
-                    found_ski_areas[area_name].append(centroid)
-            except Exception: continue
-
-    final_area_map = {}
-    for name, coords_list in found_ski_areas.items():
-        if coords_list:
-            avg_lat = sum(c[0] for c in coords_list) / len(coords_list)
-            avg_lon = sum(c[1] for c in coords_list) / len(coords_list)
-            final_area_map[name] = [avg_lat, avg_lon]
-
-    # 4. Generate HTML
+    final_map = {k: [sum(x[0] for x in v)/len(v), sum(x[1] for x in v)/len(v)] for k, v in resorts.items()}
+    print(f"Adding {len(final_map)} ski areas to the selector.")
+    
     print("Step 3: Generating HTML...")
-    mymap = generate_optimized_map(final_area_map)
+    mymap = generate_optimized_map(final_map)
     
-    # CSS & Analytics
-    google_analytics = """
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-HLZTNBRD6S');
-    </script>
-    """
-    
-    custom_css = """
-    <style>
-    .leaflet-tile { image-rendering: pixelated; }
-    .leaflet-container { background: #f0f0f0; }
-    
-    /* Dropdown Styles */
-    .ski-resort-dropdown {
-        font-size: 14px;
-        padding: 8px;
-        border-radius: 4px;
-        border: 1px solid #ccc;
-        box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-        background: white;
-        max-width: 300px;
-    }
-    @media screen and (max-width: 768px) {
-        .ski-resort-dropdown {
-            font-size: 11px !important;    
-            padding: 4px !important;
-            max-width: 150px !important;
-            height: 30px;
-        }
-    }
-    </style>
-    """
-
-    html_content = mymap.get_root().render()
-    if "</head>" in html_content:
-        injection = google_analytics + custom_css
-        html_content = html_content.replace("</head>", injection + "</head>", 1)
-        
     with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
-        
-    print("Done! Map updated.")
+        f.write(mymap.get_root().render().replace("</head>", """
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
+        <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
+        <style>.leaflet-tile{image-rendering:pixelated}.ski-resort-dropdown{font-size:14px;padding:8px;max-width:300px}@media(max-width:768px){.ski-resort-dropdown{font-size:11px!important;padding:4px!important;max-width:150px!important}}</style>
+        </head>""", 1))
+    print("Done! Open index.html.")
 
 if __name__ == "__main__":
+    mp.freeze_support()
     main()

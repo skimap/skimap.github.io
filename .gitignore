@@ -21,3 +21,4 @@ ski_renderer/target/release/incremental/
 main_cython.py
 tiles/
 .env
+sync.bat

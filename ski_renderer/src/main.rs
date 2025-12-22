@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 // --- CONFIGURATION ---
 const TILE_SIZE: u32 = 512;
-const MIN_ZOOM: u8 = 10;
+const MIN_ZOOM: u8 = 6;
 const MAX_ZOOM: u8 = 19;
 
 // UPDATE THESE PATHS IF NEEDED

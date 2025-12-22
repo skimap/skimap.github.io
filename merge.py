@@ -209,7 +209,7 @@ def generate_optimized_map(ski_areas_map=None):
         print("Using Local Tiles.")
 
     ski_layer = folium.TileLayer(
-        tiles=tile_url, attr='Ski Tracks', name='Ski Tracks', min_zoom=10, max_zoom=19, overlay=True,
+        tiles=tile_url, attr='Ski Tracks', name='Ski Tracks', min_zoom=6, max_zoom=19, overlay=True,
         detectRetina=True, crossOrigin='anonymous', opacity=0.9,
         # We use a transparent 1x1 pixel here as a fallback
         errorTileUrl='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
@@ -282,10 +282,7 @@ def main():
     parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
     parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
     args = parser.parse_args()
-    
-    # 1. ALWAYS TRY TO CONFIGURE CORS (if keys are present)
-    if B2_AVAILABLE and B2_KEY_ID:
-        configure_cors()
+
 
     # 2. GENERATE TILES (Run Rust Renderer)
     if not args.html_only:

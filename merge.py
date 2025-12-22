@@ -1,189 +1,325 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
 import folium
 import gpxpy
 import json
+import math
+from collections import defaultdict
+from tqdm import tqdm
+from folium.plugins import LocateControl
+import numpy as np
+import time
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from functools import lru_cache
+import numba
+import argparse
+from branca.element import MacroElement, Template
+import shapely.geometry as geom
+from geopy.distance import distance as geo_distance
+import subprocess
+import sys
 
-import color as c
+# --- Load Environment Variables ---
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-# Directories
-#merge_directory = "tracks/identification/identified/Síaréna Vibe Park/A7+Q3+A1/"     # Tracks to be merged
-#merge_directory = "tracks/identification/identified/Sípark Mátraszentistván/5+4/"     # Tracks to be merged
-#merge_directory = "tracks/identification/not_found/"     # Tracks to be merged
-#merge_directory = "tracks/tracks_to_split/splitted_slides/"
-#merge_directory = "tracks/ref_points/"     # Tracks to be merged
-#merge_directory = "tracks/to_be_merged/"     # Tracks to be merged
-#merge_directory = "tracks/identification/identified/Síaréna Vibe Park 202402101949/A1/"
-merge_directory = "tracks/raw/Ivett Ördög/new/"
+# --- B2 SDK Import ---
+B2_AVAILABLE = False
+try:
+    from b2sdk.v2 import InMemoryAccountInfo, B2Api, LocalFolder, B2Folder, Synchronizer, SyncReport
+    B2_AVAILABLE = True
+except ImportError:
+    pass
 
-# read the last coordinates of the ski lifts
-lifts_e = json.load(open('json/lifts/lifts_e.json'))
-lift_end_coordinate_tuples = [(lift[1], lift[0]) for lift in lifts_e]    
+try:
+    import color as c
+except ImportError:
+    pass
 
-skiing = 0
-# coloring scheme
-# 1: green/blue/red/black
-# 2: light green/dark green/light blue/dark blue/purple/red/black
-# 3: same as 2, but with correct % calculation to max percent 56% (EU)
-# 4: same as 2, but with correct % calculation to max percent 45% (HU)
-coloring_scheme = 3
-color= ""
+# -----------------------------------------------------------------------------
+# CONFIGURATION
+# -----------------------------------------------------------------------------
+MERGE_DIRECTORY = "tracks/raw/all"
+OUTPUT_GEOJSON_DIR = "tracks_geojson"
+TILES_OUTPUT_DIR = "tiles"
+SKI_AREAS_FILE = "json/ski_areas/ski_areas.geojson"
+LIFTS_FILE = "json/lifts/lifts_e.json"
 
-# create a map centered at mid Europe with a zoom level of 15
-mymap = folium.Map(location=[47.85, 16.01], zoom_start=6)
-# map_title = '''Sípálya meredekség térképek<br>Van ahol a piros sokszor kék, a kék részben piros vagy olyan zöld, hogy megállsz rajta. Nézd meg, hogy ne érjen meglepetés.'''
-# title_html = f'<h3 align="center" style="font-size:16px" >{map_title.encode("utf-8").decode("utf-8")}</h3>'
-# mymap.get_root().html.add_child(folium.Element(title_html))
+# --- BACKBLAZE B2 CONFIGURATION ---
+B2_KEY_ID = os.getenv("B2_KEY_ID")
+B2_APP_KEY = os.getenv("B2_APP_KEY")
+B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
+B2_FRIENDLY_URL = os.getenv("B2_FRIENDLY_URL")
 
-# joe is a progress level variable iterates through all files in working directory
-joe=1
-# Iterate over files in the directory again to add points and lines to the map
-for filename in os.listdir(merge_directory):
-    print(f'Processing {filename}.')
-    if filename.endswith(".gpx"):
-        # Parse the GPX file
-        gpx_file = open(os.path.join(merge_directory, filename), 'r')
-        gpx = gpxpy.parse(gpx_file)
+USE_REMOTE_TILES = bool(B2_FRIENDLY_URL)
 
-        # Extract latitude, longitude, and elevation data
-        latitude_data = []
-        longitude_data = []
-        elevation_data = []
-        descent_rates = []
+EARTH_RADIUS = 6371000
+DEG_TO_RAD = math.pi / 180.0
 
-        for track in gpx.tracks:
-            for segment in track.segments:
-                for point in segment.points:
-                    latitude_data.append(point.latitude)
-                    longitude_data.append(point.longitude)
-                    elevation_data.append(point.elevation)
+# -----------------------------------------------------------------------------
+# B2 OPERATIONS
+# -----------------------------------------------------------------------------
 
-        # Calculate descent rate between consecutive points
-        for i in range(1, len(elevation_data)):
-            distance = gpxpy.geo.haversine_distance(latitude_data[i - 1], longitude_data[i - 1],
-                                                    latitude_data[i], longitude_data[i])
-            elevation_gain = elevation_data[i] - elevation_data[i - 1]
-            if distance != 0:
-                descent_rate = elevation_gain / distance
-                descent_rates.append(descent_rate)
-            else: 
-                descent_rates.append(0)
+def get_b2_api():
+    """Helper to authenticate and return B2 API and Bucket."""
+    if not B2_AVAILABLE or not B2_KEY_ID or not B2_APP_KEY:
+        return None, None
+    try:
+        info = InMemoryAccountInfo()
+        b2_api = B2Api(info)
+        b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+        return b2_api, bucket
+    except Exception as e:
+        print(f"B2 Auth Error: {e}")
+        return None, None
 
-        # Compute 5-point moving average for descent rates
-        moving_avg = []
-        for i in range(len(descent_rates)):
-            if i < 4:
-                moving_avg.append(descent_rates[i])
-            else:
-                avg = (descent_rates[i - 4]
-                        + descent_rates[i - 3]
-                        + descent_rates[i - 2]
-                        + descent_rates[i - 1]
-                        + descent_rates[i]
-                       ) / 5
-                moving_avg.append(avg)
+def configure_cors():
+    """Sets CORS rules on the B2 bucket to allow browser access."""
+    print("Checking B2 CORS permissions...")
+    b2_api, bucket = get_b2_api()
+    if not bucket:
+        print("Skipping CORS config (No Auth).")
+        return
 
-        def track_minimal_distance_to_point(gpx_track, ref_point):
-            """
-            Calculates the minimal distance between a gpx track and a reference point.
+    try:
+        cors_rules = [
+            {
+                "corsRuleName": "allowAny",
+                "allowedOrigins": ["*"],
+                "allowedOperations": ["GET", "HEAD"],
+                "allowedHeaders": ["*"],
+                "maxAgeSeconds": 3600
+            }
+        ]
+        bucket.update(cors_rules=cors_rules)
+        print("✅ CORS rules updated! Map tiles are now public.")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not configure CORS: {e}")
 
-            Args:
-                gpx_track (gpxpy.gpx.GPXTrack): The gpx track to calculate the distance for.
-                ref_point (tuple): The reference point as a tuple of (latitude, longitude).
+def sync_tiles_to_b2():
+    print("\n--- Starting B2 Sync ---")
+    b2_api, _ = get_b2_api()
+    if not b2_api:
+        print("Cannot sync: B2 Auth failed or keys missing.")
+        return
 
-            Returns:
-                float: The minimal distance between the gpx track and the reference point.
-            """
-            return gpxpy.geo.haversine_distance(*gpx_track, *ref_point)
+    try:
+        source_path = os.path.abspath(TILES_OUTPUT_DIR)
+        destination_path_in_bucket = "tiles" 
+
+        source_folder = LocalFolder(source_path)
+        dest_folder = B2Folder(B2_BUCKET_NAME, destination_path_in_bucket, b2_api)
+
+        print(f"Syncing local {source_path} -> B2:/{destination_path_in_bucket}...")
         
-        def check_if_point_is_startingpoint(avg1, avg2, avg3, avg4, avg5, avg, i, *ref_point):
-            """
-            Checks if a point is a starting point of a ski slide based on the moving average of the decent rates.
-
-            Args:
-                avg1-5 (float): The moving average of the decent rates from the previous five points.
-                avg (float): The moving average of the decent rates of the current point.
-                i (int): The index of the current point.
-                ref_point (tuple): A tuple of reference points to check if the current point is close to any of them.
-
-            Returns:
-                bool: True if the current point is a starting point, False otherwise.
-            """
-            if color != "#4a412a" and avg1 >= 0 and avg2 >= 0 and avg3 >= 0 and avg4 >= 0 and avg5 >= 0 and avg < 0:
-                for point in ref_point:
-                    if track_minimal_distance_to_point((latitude_data[i], longitude_data[i]), point) < 50:
-                        return True
-                return False
-            return False
+        synchronizer = Synchronizer(max_workers=20, dry_run=False)
+        reporter = SyncReport(sys.stdout, no_progress=False)
         
-        # Add points and lines to the map with color-coded descent rate
-        for i in range(len(latitude_data) - 1):
-                lift_end_coordinate_tuples_consumable = lift_end_coordinate_tuples
-                if check_if_point_is_startingpoint(moving_avg[i-1],
-                                                   moving_avg[i-2],
-                                                   moving_avg[i-3],
-                                                   moving_avg[i-4],
-                                                   moving_avg[i-5],
-                                                   moving_avg[i],
-                                                   i,
-                                                   *lift_end_coordinate_tuples_consumable):
-                    color = "#4a412a"
-                    skiing += 1
-                else:
-                    color=c.get_color(moving_avg[i], coloring_scheme),
-                folium.PolyLine(
-                locations=[[latitude_data[i], longitude_data[i]], [latitude_data[i + 1], longitude_data[i + 1]]], weight=6, color=color).add_to(mymap)
-        print(f'{filename} processed, {joe/len(os.listdir(merge_directory)) * 100:.2f}% done.')
-    joe += 1
+        synchronizer.sync_folders(
+            source_folder=source_folder,
+            dest_folder=dest_folder,
+            now_millis=int(time.time() * 1000),
+            reporter=reporter, 
+        )
+        print("\n✅ Tile Sync Complete!")
 
-# Save the map as an HTML file
-html_content = mymap.get_root().render()
+    except Exception as e:
+        print(f"\n❌ B2 Sync Error: {e}")
 
-# Append Google Analytics code to the HTML content
-google_analytics_code = """
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+# -----------------------------------------------------------------------------
+# HELPERS & PROCESSING
+# -----------------------------------------------------------------------------
 
-  gtag('config', 'G-HLZTNBRD6S');
-</script>
-"""
+@lru_cache(maxsize=1)
+def load_lift_data():
+    try:
+        with open(LIFTS_FILE) as f: return [(x[1], x[0]) for x in json.load(f)]
+    except FileNotFoundError: return []
 
-# google_analytics_code = """
-# <!-- Google tag (gtag.js) -->
-# <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-# <script>
-#   window.dataLayer = window.dataLayer || [];
-#   function gtag(){dataLayer.push(arguments);}
-#   gtag('js', new Date());
+@lru_cache(maxsize=1)
+def load_ski_areas_data():
+    try:
+        with open(SKI_AREAS_FILE, encoding="utf-8") as f: return json.load(f)
+    except FileNotFoundError: return {"features": []}
 
-#   gtag('config', 'G-HLZTNBRD6S');
-# </script>
+lift_end_coordinate_tuples = load_lift_data()
+ski_areas_data = load_ski_areas_data()
 
-# <!-- HTML Content -->
-# <div class="dropdown">
-#     <select onchange="window.location.href = this.value;">
-#         <option value="./index.html">Index</option>
-#         <option value="./index1.html">Index 1</option>
-#         <option value="./index2.html">Index 2</option>
-#         <!-- Add more pages here as needed -->
-#     </select>
-# </div>
+@numba.jit(nopython=True)
+def haversine_distance_vectorized(lat1, lon1, lat2, lon2):
+    dlat = (lat2 - lat1) * DEG_TO_RAD
+    dlon = (lon2 - lon1) * DEG_TO_RAD
+    a = np.sin(dlat / 2.0)**2 + np.cos(lat1 * DEG_TO_RAD) * np.cos(lat2 * DEG_TO_RAD) * np.sin(dlon / 2.0)**2
+    c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+    return EARTH_RADIUS * c
 
-# <div id="index" class="page active">Index Page Content</div>
-# <div id="index1" class="page">Index 1 Page Content</div>
-# <div id="index2" class="page">Index 2 Page Content</div>
-# <!-- Add more pages here as needed -->
-# """
+def assign_ski_area(points, max_km=2):
+    if not points or not ski_areas_data.get("features"): return "Unknown"
+    try:
+        step = max(1, len(points) // 50)
+        sample_points = points[::step]
+        line = geom.LineString([(lon, lat) for lat, lon, _ in sample_points])
+        centroid = line.centroid
+        for feature in ski_areas_data["features"]:
+            props = feature.get("properties", {})
+            if not props or not props.get("name"): continue
+            try: geometry = geom.shape(feature["geometry"])
+            except: continue
+            if geometry.contains(centroid): return props.get("name")
+            feature_center = geometry.centroid
+            dist = geo_distance((centroid.y, centroid.x), (feature_center.y, feature_center.x)).km
+            if dist < max_km: return props.get("name")
+    except: pass
+    return "Unknown"
 
+def process_gpx_file_optimized(filename):
+    filepath = os.path.join(MERGE_DIRECTORY, filename)
+    try:
+        with open(filepath, 'r') as f: gpx = gpxpy.parse(f)
+        points = []
+        for t in gpx.tracks:
+            for s in t.segments:
+                for p in s.points: points.append((p.latitude, p.longitude, p.elevation))
+        if len(points) < 2: return ([], 0, "Unknown", None)
+        area_name = assign_ski_area(points)
+        avg_lat = sum(p[0] for p in points) / len(points)
+        avg_lon = sum(p[1] for p in points) / len(points)
+        return (points, 0, area_name, (avg_lat, avg_lon))
+    except Exception as e:
+        print(f"Error {filename}: {e}")
+        return ([], 0, "Unknown", None)
 
-# Insert the Analytics code just before the closing </head> tag
-html_content = html_content.replace("</head>", google_analytics_code + "</head>", 1)
-
-# Write the modified HTML content to a file
-with open("skimap.html", "w", encoding="utf-8") as html_file:
-    html_file.write(html_content)
+def generate_optimized_map(ski_areas_map=None):
+    mymap = folium.Map(location=[47.85, 16.01], zoom_start=6, max_zoom=19, prefer_canvas=True, tiles="CartoDB Positron")
+    LocateControl(auto_start=False, strings={"title": "Show my location"}, position="topright").add_to(mymap)
     
-print(skiing)
+    if USE_REMOTE_TILES and B2_FRIENDLY_URL:
+        base_url = B2_FRIENDLY_URL if B2_FRIENDLY_URL.endswith('/') else B2_FRIENDLY_URL + '/'
+        tile_url = f"{base_url}tiles/{{z}}/{{x}}/{{y}}.png"
+        print(f"Using Remote Tiles: {tile_url}")
+    else:
+        tile_url = 'tiles/{z}/{x}/{y}.png'
+        print("Using Local Tiles.")
+
+    ski_layer = folium.TileLayer(
+        tiles=tile_url, attr='Ski Tracks', name='Ski Tracks', min_zoom=6, max_zoom=19, overlay=True,
+        detectRetina=True, crossOrigin='anonymous', opacity=0.9,
+        # We use a transparent 1x1 pixel here as a fallback
+        errorTileUrl='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+    )
+    ski_layer.add_to(mymap)
+    
+    # Generate Options HTML in Python
+    options_html = ""
+    areas_js = "{}"
+    
+    if ski_areas_map:
+        valid_items = {k: v for k, v in ski_areas_map.items() if k and isinstance(k, str)}
+        sorted_areas = sorted(valid_items.items())
+        areas_js = json.dumps(valid_items)
+        
+        for name, _ in sorted_areas:
+            safe_name = name.replace("'", "&#39;")
+            options_html += f'<option value="{safe_name}">{name}</option>'
+
+    map_id = mymap.get_name()
+    layer_id = ski_layer.get_name()
+    
+    macro = MacroElement()
+    
+    js_content = f"""
+    {{% macro script(this, kwargs) %}}
+        var map = {map_id};
+        var skiLayer = {layer_id};
+        var skiAreas = {areas_js};
+        
+        // 1. Create the control
+        var selector = L.control({{position: 'topright'}});
+        
+        // 2. Define onAdd
+        selector.onAdd = function(map) {{
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = '<select id="area_selector" class="ski-resort-dropdown"><option value="">Jump to Ski Area...</option>{options_html}</select>';
+            L.DomEvent.disableClickPropagation(div); 
+            L.DomEvent.disableScrollPropagation(div);
+            return div;
+        }};
+        
+        // 3. Add to map
+        selector.addTo(map);
+
+        // 4. Add Event Listeners
+        var sel = document.getElementById("area_selector");
+        if (sel) {{
+            sel.addEventListener("change", function(e) {{
+                var val = e.target.value;
+                if(val && skiAreas[val]) {{
+                    map.flyTo(skiAreas[val], 13, {{animate: true, duration: 1.5}});
+                }}
+            }});
+        }}
+
+        // FIX: No retry loop. Just hide the tile if it fails.
+        skiLayer.on('tileerror', function(e) {{
+            e.tile.style.display = 'none';
+        }});
+    {{% endmacro %}}
+    """
+    
+    macro._template = Template(js_content)
+    mymap.get_root().add_child(macro)
+    return mymap
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
+    parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
+    args = parser.parse_args()
+
+
+    # 2. GENERATE TILES (Run Rust Renderer)
+    if not args.html_only:
+        print("Step 1: Generating Tiles (ski_renderer.exe)...")
+        if os.path.exists("ski_renderer.exe"):
+            try: subprocess.run(["ski_renderer.exe"], check=True)
+            except: sys.exit("Error: Rust renderer failed.")
+        else: print("Warning: ski_renderer.exe missing.")
+    
+    # 3. UPLOAD TILES
+    if args.update_tiles:
+        sync_tiles_to_b2()
+
+    # 4. GENERATE HTML
+    print("Step 2: Indexing Resorts...")
+    with ProcessPoolExecutor(max_workers=mp.cpu_count()) as ex:
+        files = [f for f in os.listdir(MERGE_DIRECTORY) if f.endswith('.gpx')]
+        resorts = defaultdict(list)
+        for fut in tqdm(as_completed([ex.submit(process_gpx_file_optimized, f) for f in files]), total=len(files)):
+            _, _, name, center = fut.result()
+            if name != "Unknown" and center: resorts[name].append(center)
+    
+    final_map = {k: [sum(x[0] for x in v)/len(v), sum(x[1] for x in v)/len(v)] for k, v in resorts.items()}
+    print(f"Adding {len(final_map)} ski areas to the selector.")
+    
+    print("Step 3: Generating HTML...")
+    mymap = generate_optimized_map(final_map)
+    
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(mymap.get_root().render().replace("</head>", """
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
+        <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9589673596142969"crossorigin="anonymous"></script>
+        <style>.leaflet-tile{image-rendering:pixelated}.ski-resort-dropdown{font-size:14px;padding:8px;max-width:300px}@media(max-width:768px){.ski-resort-dropdown{font-size:11px!important;padding:4px!important;max-width:150px!important}}</style>
+        </head>""", 1))
+    print("Done! Open index.html.")
+
+if __name__ == "__main__":
+    mp.freeze_support()
+    main()

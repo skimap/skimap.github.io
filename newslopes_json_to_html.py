@@ -29,7 +29,7 @@ def save_track_to_html(filename, latitude, longitude):
         
 
 # read the slope coordinates from the newslopes.json file
-with open("json/slopes/newslopes.json", 'r', encoding='utf-8') as file:
+with open("valid_global_combinations.json", 'r', encoding='utf-8') as file:
     runs = json.load(file)
 
 i = 1

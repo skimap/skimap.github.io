@@ -7,3 +7,17 @@ tracks/test/
 tracks/tracks_to_split/
 *.pyc
 .vscode/settings.json
+build_and_run.bat
+cython_*
+main_cython.pyc
+rusttest.py
+setup.py
+build/
+ski_renderer/target/release/.fingerprint/
+ski_renderer/target/release/build/
+ski_renderer/target/release/deps/
+ski_renderer/target/release/examples/
+ski_renderer/target/release/incremental/
+main_cython.py
+tiles/
+.env

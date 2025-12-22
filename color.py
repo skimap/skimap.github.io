@@ -6,6 +6,8 @@
 # 3: same as 2, but with correct % calculation to max percent 56% (EU)
 # 4: same as 2, but with correct % calculation to max percent 45% (HU)
 
+# TODO allow the user to switch between the colours
+
 import numpy as np
 
 def get_color(rate: float, coloring_scheme: int):
@@ -13,13 +15,13 @@ def get_color(rate: float, coloring_scheme: int):
         if rate >= 0:
             return '#80808020'
         elif rate >= -0.15:
-            return 'green'
+            return '#028000'
         elif rate >= -0.29:
-            return 'blue'
+            return '#0100ff'
         elif rate >= -0.45:
-            return 'red'
+            return '#ff0a00'
         else:
-            return 'black'
+            return '#000000'
     if coloring_scheme == 2:
         if rate >= 0:
             return '#80808080'
@@ -34,11 +36,11 @@ def get_color(rate: float, coloring_scheme: int):
         elif rate >= -0.3:
             return '#800080'     # purple
         elif rate >= -0.37:
-            return 'red'
+            return '#ff0a00'
         elif rate >= -0.45:
-            return 'darkred'
+            return '#8b0000'
         else:
-            return 'black'
+            return '#000000'
     if coloring_scheme == 3:    # 100% is 56°, European colors
         alpha = np.arctan(rate)*2/np.pi*90
         ski_slope_rate = alpha / 56

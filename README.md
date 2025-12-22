@@ -1,16 +1,44 @@
-# A visualization project of the real gradients of the ski slopes from real gps tracks.
+# Skimap.github.io
 
-## Copyright
-The idea came from Mária Zsélyé Ujvári.
+This project processes ski track data (GPX) and renders them onto a map. it includes a Python-based processing pipeline and a high-performance Rust-based tile renderer.
 
-The coding was done by Bence Zsély and István Zsély.
+## Prerequisites
 
-## Contributions
-Thank you for those skier who sent us their own gps tracks.
+- **Python 3.x**
+- **Rust** (for the tile renderer)
 
-## Dependencies:
-The code uses lifts.geojson (date: 04/02/2024) and runs.geojson (date: 04/02/2024) from OpenSkiMap.org. Many thanks for the valuable data which allows us to identify slopes automatically.
+## Getting Started
 
-## Technical details
-Python interpreter version: 3.11.8, Jupyter notebook
-Python modules used: folium 0.15.1, gpxpy 1.6.2, numpy 1.25.0, pandas 2.1.3, scipy 1.12.0
+### 1. Python Environment Setup
+
+Install the required Python dependencies:
+
+Windows:
+```bash
+pip install -r requirements.txt
+```
+Mac / Linux:
+```bash
+pip3 install -r requirements.txt
+```
+
+### 2. Rust Tile Renderer
+
+The Rust renderer is located in the `ski_renderer` directory. It processes GPX files from `tracks/raw/all` and generates map tiles in the `tiles` directory.
+
+To build and run the renderer:
+
+```bash
+cd ski_renderer
+cargo run --release
+```
+
+### 3. Running the Web Interface
+
+The project is a static website. You can serve it using any local web server. For example, using Python:
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000` in your browser.

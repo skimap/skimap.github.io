@@ -51,6 +51,10 @@ TILES_OUTPUT_DIR = "tiles"
 SKI_AREAS_FILE = "json/ski_areas/ski_areas.geojson"
 LIFTS_FILE = "json/lifts/lifts_e.json"
 
+# Asset Paths
+MAP_LOGIC_JS = "assets/map_logic.js"
+MAP_STYLES_CSS = "assets/map_styles.css"
+
 # --- BACKBLAZE B2 CONFIGURATION ---
 B2_KEY_ID = os.getenv("B2_KEY_ID")
 B2_APP_KEY = os.getenv("B2_APP_KEY")
@@ -216,64 +220,22 @@ def generate_optimized_map(ski_areas_map=None):
     )
     ski_layer.add_to(mymap)
     
-    # Generate Options HTML in Python
-    options_html = ""
-    areas_js = "{}"
+    areas_js = json.dumps(ski_areas_map or {})
     
-    if ski_areas_map:
-        valid_items = {k: v for k, v in ski_areas_map.items() if k and isinstance(k, str)}
-        sorted_areas = sorted(valid_items.items())
-        areas_js = json.dumps(valid_items)
-        
-        for name, _ in sorted_areas:
-            safe_name = name.replace("'", "&#39;")
-            options_html += f'<option value="{safe_name}">{name}</option>'
+    # Read external JS logic
+    with open(MAP_LOGIC_JS, "r") as f:
+        js_logic = f.read()
 
-    map_id = mymap.get_name()
-    layer_id = ski_layer.get_name()
-    
     macro = MacroElement()
-    
-    js_content = f"""
+    macro._template = Template(f"""
     {{% macro script(this, kwargs) %}}
-        var map = {map_id};
-        var skiLayer = {layer_id};
-        var skiAreas = {areas_js};
+        {js_logic}
         
-        // 1. Create the control
-        var selector = L.control({{position: 'topright'}});
-        
-        // 2. Define onAdd
-        selector.onAdd = function(map) {{
-            var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML = '<select id="area_selector" class="ski-resort-dropdown"><option value="">Jump to Ski Area...</option>{options_html}</select>';
-            L.DomEvent.disableClickPropagation(div); 
-            L.DomEvent.disableScrollPropagation(div);
-            return div;
-        }};
-        
-        // 3. Add to map
-        selector.addTo(map);
-
-        // 4. Add Event Listeners
-        var sel = document.getElementById("area_selector");
-        if (sel) {{
-            sel.addEventListener("change", function(e) {{
-                var val = e.target.value;
-                if(val && skiAreas[val]) {{
-                    map.flyTo(skiAreas[val], 13, {{animate: true, duration: 1.5}});
-                }}
-            }});
-        }}
-
-        // FIX: No retry loop. Just hide the tile if it fails.
-        skiLayer.on('tileerror', function(e) {{
-            e.tile.style.display = 'none';
-        }});
+        // Initialize with data from Python
+        initMapControls({mymap.get_name()}, {ski_layer.get_name()}, {areas_js});
     {{% endmacro %}}
-    """
+    """)
     
-    macro._template = Template(js_content)
     mymap.get_root().add_child(macro)
     return mymap
 
@@ -282,7 +244,6 @@ def main():
     parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
     parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
     args = parser.parse_args()
-
 
     # 2. GENERATE TILES (Run Rust Renderer)
     if not args.html_only:
@@ -311,13 +272,22 @@ def main():
     print("Step 3: Generating HTML...")
     mymap = generate_optimized_map(final_map)
     
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(mymap.get_root().render().replace("</head>", """
+    # Read external CSS
+    with open(MAP_STYLES_CSS, "r") as f:
+        custom_css = f.read()
+
+    head_injection = f"""
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-        <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
+        <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9589673596142969"crossorigin="anonymous"></script>
-        <style>.leaflet-tile{image-rendering:pixelated}.ski-resort-dropdown{font-size:14px;padding:8px;max-width:300px}@media(max-width:768px){.ski-resort-dropdown{font-size:11px!important;padding:4px!important;max-width:150px!important}}</style>
-        </head>""", 1))
+        <style>{custom_css}</style>
+        </head>"""
+
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(mymap.get_root().render().replace("</head>", head_injection, 1))
     print("Done! Open index.html.")
 
 if __name__ == "__main__":

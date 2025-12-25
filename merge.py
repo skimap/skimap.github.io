@@ -21,6 +21,7 @@ import shapely.geometry as geom
 from geopy.distance import distance as geo_distance
 import subprocess
 import sys
+import shutil
 
 # --- Load Environment Variables ---
 try:
@@ -47,7 +48,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 MERGE_DIRECTORY = "tracks/raw/all"
 OUTPUT_GEOJSON_DIR = "tracks_geojson"
-TILES_OUTPUT_DIR = "frontend/public/tiles"
+TILES_OUTPUT_DIR = "tiles"
 SKI_AREAS_FILE = "json/ski_areas/ski_areas.geojson"
 LIFTS_FILE = "json/lifts/lifts_e.json"
 
@@ -239,20 +240,73 @@ def generate_optimized_map(ski_areas_map=None):
     mymap.get_root().add_child(macro)
     return mymap
 
+def deploy_frontend():
+    print("\n--- Deploying Frontend ---")
+    
+    # 1. Build React App
+    print("Building React App...")
+    try:
+        if os.name == "nt":
+            subprocess.run("cd frontend && npm run build", shell=True, check=True)
+        else:
+            subprocess.run(["npm", "run", "build"], cwd="frontend", check=True)
+    except subprocess.CalledProcessError:
+        print("Error: Frontend build failed.")
+        return
+
+    # 2. Move Artifacts to Root
+    print("Moving artifacts to root...")
+    dist_dir = os.path.join("frontend", "dist")
+    
+    # Move index.html
+    shutil.copy(os.path.join(dist_dir, "index.html"), "index.html")
+    
+    # Move assets folder (delete old one first)
+    if os.path.exists("assets"):
+        shutil.rmtree("assets")
+    shutil.copytree(os.path.join(dist_dir, "assets"), "assets")
+    
+    # Move vite.svg if it exists
+    if os.path.exists(os.path.join(dist_dir, "vite.svg")):
+        shutil.copy(os.path.join(dist_dir, "vite.svg"), "vite.svg")
+        
+    print("✅ Deployment ready! The root directory now contains the built site.")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
     parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
+    parser.add_argument('--deploy', action='store_true', help="Build frontend and move to root for GitHub Pages")
     args = parser.parse_args()
 
     # 2. GENERATE TILES (Run Rust Renderer)
     if not args.html_only:
-        print("Step 1: Generating Tiles (ski_renderer.exe)...")
-        if os.path.exists("ski_renderer.exe"):
-            try: subprocess.run(["ski_renderer.exe"], check=True)
-            except: sys.exit("Error: Rust renderer failed.")
-        else: print("Warning: ski_renderer.exe missing.")
-    
+        print("Step 1: Generating Tiles...")
+        
+        # Possible locations for the binary
+        binary_name = "ski_renderer.exe" if os.name == "nt" else "ski_renderer"
+        possible_paths = [
+            binary_name, # Current directory
+            os.path.join("ski_renderer", binary_name), # Inside project folder
+            os.path.join("ski_renderer", "target", "release", binary_name), # Standard Cargo release path
+        ]
+        
+        renderer_path = None
+        for path in possible_paths:
+            if os.path.isfile(path): # CRITICAL: check it's a file, not a directory
+                renderer_path = path
+                break
+        
+        if renderer_path:
+            try: 
+                if os.name != "nt":
+                    subprocess.run(["chmod", "+x", renderer_path], check=False)
+                subprocess.run([renderer_path], check=True)
+            except Exception as e: sys.exit(f"Error: Rust renderer failed: {e}")
+        else: 
+            print(f"Warning: Rust renderer binary ({binary_name}) missing.")
+            print("Please build it first: cd ski_renderer && cargo build --release")
+
     # 3. UPLOAD TILES
     if args.update_tiles:
         sync_tiles_to_b2()
@@ -281,7 +335,7 @@ def main():
         # For now, let's assume relative to the public root or a specific absolute path.
         # If we run 'vite' in 'frontend', it serves 'public'. 
         # We need to symlink 'tiles' to 'frontend/public/tiles' or similar for dev.
-        tile_url = '/tiles/{z}/{x}/{y}.png' 
+        tile_url = 'tiles/{z}/{x}/{y}.png' 
         print("Using Local Tiles.")
 
     data_output = {
@@ -296,6 +350,9 @@ def main():
         json.dump(data_output, f, indent=2)
         
     print(f"Done! Data written to {output_path}")
+
+    if args.deploy:
+        deploy_frontend()
 
 if __name__ == "__main__":
     mp.freeze_support()

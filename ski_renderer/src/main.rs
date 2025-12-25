@@ -20,7 +20,7 @@ const MAX_ZOOM: u8 = 19;
 
 // UPDATE THESE PATHS IF NEEDED
 const INPUT_DIR: &str = "../tracks/raw/all"; 
-const OUTPUT_DIR: &str = "../frontend/public/tiles"; 
+const OUTPUT_DIR: &str = "../tiles"; 
 const LIFTS_FILE: &str = "../json/lifts/lifts_e.json";
 const EARTH_RADIUS: f64 = 6371000.0;
 

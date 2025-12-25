@@ -6,7 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="0c40d393-d21e-4704-b9f3-94b350d7d47a" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/SkiMap.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/SkiMap.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/merge.py" beforeDir="false" afterPath="$PROJECT_DIR$/merge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ski_renderer/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/ski_renderer/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ski_renderer/target/release/ski_renderer" beforeDir="false" afterPath="$PROJECT_DIR$/ski_renderer/target/release/ski_renderer" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,7 +117,7 @@
       <option name="presentableId" value="Default" />
       <updated>1766410492450</updated>
       <workItem from="1766410493550" duration="3100000" />
-      <workItem from="1766697396949" duration="2646000" />
+      <workItem from="1766697396949" duration="3743000" />
     </task>
     <servers />
   </component>

@@ -9,6 +9,7 @@ import {MapContainer, TileLayer, useMap, Marker, Popup} from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import {SkiData} from '../App'
 import SkiAreaSelector from './SkiAreaSelector'
+import InfoModal from './InfoModal'
 
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: iconRetina,
@@ -38,16 +39,35 @@ function LocateControl({ map }: { map: L.Map | null }) {
     };
 
     return (
-        <div className="leaflet-control leaflet-bar pointer-events-auto m-0">
+        <div className="leaflet-control leaflet-bar pointer-events-auto m-0 shadow-md">
             <button
                 onClick={handleLocate}
-                className="bg-white hover:bg-gray-100 w-[38px] h-[38px] flex items-center justify-center cursor-pointer border-none"
+                className="bg-white hover:bg-gray-100 w-[38px] h-[38px] flex items-center justify-center cursor-pointer border-none rounded-md"
                 title="Show my location"
             >
                 <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none"
-                     strokeLinecap="round" strokeLinejoin="round" className="text-black">
+                     strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M12 2L12 5M12 19L12 22M2 12L5 12M19 12L22 12"></path>
+                </svg>
+            </button>
+        </div>
+    );
+}
+
+function InfoControl({ onClick }: { onClick: () => void }) {
+    return (
+        <div className="leaflet-control leaflet-bar pointer-events-auto m-0 shadow-md">
+            <button
+                onClick={onClick}
+                className="bg-white hover:bg-gray-100 w-[38px] h-[38px] flex items-center justify-center cursor-pointer border-none rounded-md"
+                title="About SkiMap"
+            >
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" 
+                     strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
                 </svg>
             </button>
         </div>
@@ -57,9 +77,12 @@ function LocateControl({ map }: { map: L.Map | null }) {
 export default function SkiMap({data}: SkiMapProps) {
     const [target, setTarget] = useState<[number, number] | null>(null);
     const [map, setMap] = useState<L.Map | null>(null);
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
 
     return (
         <div className="relative w-full h-full">
+            <InfoModal isOpen={isInfoOpen} onClose={() => setIsInfoOpen(false)} />
+            
             <MapContainer
                 center={[47.85, 16.01]}
                 zoom={6}
@@ -115,6 +138,7 @@ export default function SkiMap({data}: SkiMapProps) {
                     />
                 </div>
                 <LocateControl map={map} />
+                <InfoControl onClick={() => setIsInfoOpen(true)} />
             </div>
         </div>
     )

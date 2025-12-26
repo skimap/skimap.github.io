@@ -1,17 +1,20 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+
 import {useState, useEffect} from 'react'
-import {MapContainer, TileLayer, useMap} from 'react-leaflet'
+import {MapContainer, TileLayer, useMap, Marker, Popup} from 'react-leaflet'
+import MarkerClusterGroup from 'react-leaflet-cluster'
 import {SkiData} from '../App'
 import SkiAreaSelector from './SkiAreaSelector'
 
-let DefaultIcon = L.icon({
-    iconUrl: icon, shadowUrl: iconShadow, iconAnchor: [12, 41]
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: iconRetina,
+    iconUrl: icon,
+    shadowUrl: iconShadow,
 });
-L.Marker.prototype.options.icon = DefaultIcon;
 
 interface SkiMapProps {
     data: SkiData;
@@ -83,6 +86,22 @@ export default function SkiMap({data}: SkiMapProps) {
                         }
                     }}
                 />
+
+                <MarkerClusterGroup chunkedLoading>
+                    {Object.entries(data.ski_areas).map(([name, coords]) => (
+                        <Marker 
+                            key={name} 
+                            position={coords}
+                            eventHandlers={{
+                                click: () => {
+                                    setTarget(coords);
+                                },
+                            }}
+                        >
+                            <Popup>{name}</Popup>
+                        </Marker>
+                    ))}
+                </MarkerClusterGroup>
 
                 <FlyToLocation target={target}/>
             </MapContainer>

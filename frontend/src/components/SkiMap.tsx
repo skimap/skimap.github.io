@@ -11,6 +11,9 @@ import {SkiData} from '../App'
 import SkiAreaSelector from './SkiAreaSelector'
 import InfoModal from './InfoModal'
 
+// Fix for default marker icons in React Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: iconRetina,
     iconUrl: icon,

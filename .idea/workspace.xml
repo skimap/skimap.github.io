@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0c40d393-d21e-4704-b9f3-94b350d7d47a" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/SkiMap.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/SkiMap.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/index.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,7 +30,7 @@
                 <list>
                   <RecentBranch>
                     <option name="branchName" value="feature/dropdown-fix" />
-                    <option name="lastUsedInstant" value="1766699534" />
+                    <option name="lastUsedInstant" value="1766760513" />
                   </RecentBranch>
                   <RecentBranch>
                     <option name="branchName" value="main" />

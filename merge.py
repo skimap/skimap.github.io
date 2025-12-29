@@ -60,7 +60,7 @@ MAP_STYLES_CSS = "assets/map_styles.css"
 B2_KEY_ID = os.getenv("B2_KEY_ID")
 B2_APP_KEY = os.getenv("B2_APP_KEY")
 B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
-B2_FRIENDLY_URL = os.getenv("B2_FRIENDLY_URL")
+B2_FRIENDLY_URL = "https://f003.backblazeb2.com/file/Skimap/"
 
 USE_REMOTE_TILES = bool(B2_FRIENDLY_URL)
 

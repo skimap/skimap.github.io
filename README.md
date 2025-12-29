@@ -1,17 +1,18 @@
 # Skimap.github.io
 
-This project processes ski track data (GPX) and renders them onto a map. it includes a Python-based processing pipeline and a high-performance Rust-based tile renderer.
+This project processes ski track data (GPX) and renders them onto a map using a modern React frontend and a Rust-based tile renderer.
 
 ## Prerequisites
 
 - **Python 3.x**
+- **Node.js & npm**
 - **Rust** (for the tile renderer)
 
 ## Getting Started
 
-### 1. Python Environment Setup
+### 1. Setup
 
-Install the required Python dependencies:
+Install Python dependencies:
 
 Windows:
 ```bash
@@ -22,23 +23,66 @@ Mac / Linux:
 pip3 install -r requirements.txt
 ```
 
-### 2. Rust Tile Renderer
+Install Frontend dependencies:
+```bash
+cd frontend
+npm install
+cd ..
+```
 
-The Rust renderer is located in the `ski_renderer` directory. It processes GPX files from `tracks/raw/all` and generates map tiles in the `tiles` directory.
-
-To build and run the renderer:
-
+Build the Rust Renderer:
 ```bash
 cd ski_renderer
-cargo run --release
+cargo build --release
+cd ..
 ```
 
-### 3. Running the Web Interface
+### 2. Generate Data & Tiles
 
-The project is a static website. You can serve it using any local web server. For example, using Python:
+Run the pipeline to process GPX files, generate tiles, and output the data for the frontend:
 
 ```bash
-python3 -m http.server 8000
+python3 merge.py
 ```
+*Note: Use `--html-only` to skip tile generation if you only updated the logic or data extraction.*
 
-Then open `http://localhost:8000` in your browser.
+### 3. Run the Application
+
+**Development (Hot Reloading):**
+Start the Vite dev server:
+```bash
+cd frontend
+npm run dev
+```
+Open `http://localhost:5173` (or whatever port you are presented).
+
+**Production Build:**
+Build the static site:
+```bash
+cd frontend
+npm run build
+```
+The output will be in `frontend/dist`. You can serve this folder with any static file server.
+
+## Architecture
+
+- **Data Processing (`merge.py`):** 
+    - Merges GPX files.
+    - Identifies ski areas.
+    - outputs `frontend/public/map_data.json`.
+- **Tile Rendering (`ski_renderer/`):** 
+    - Rust application that renders GPX tracks into PNG tiles.
+    - Tiles are stored in `frontend/public/tiles/`.
+- **Frontend (`frontend/`):**
+    - **Vite + React + TypeScript** application.
+    - **Tailwind CSS** for styling.
+    - **React Leaflet** for the map.
+    - **React Select** for the searchable dropdown.
+
+## Project Structure
+
+- `frontend/`: React application source.
+- `frontend/public/tiles/`: Generated map tiles.
+- `ski_renderer/`: Rust tile renderer source.
+- `tracks/`: Raw GPX data.
+- `json/`: Ski area and lift databases.

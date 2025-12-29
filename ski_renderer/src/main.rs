@@ -19,10 +19,10 @@ const TILE_SIZE: u32 = 512;
 const MIN_ZOOM: u8 = 6;
 const MAX_ZOOM: u8 = 19;
 
-// PATHS
-const INPUT_DIR: &str = "d:/python/skimap.github.io/tracks/raw/all"; 
-const OUTPUT_DIR: &str = "d:/python/skimap.github.io/tiles"; 
-const LIFTS_FILE: &str = "d:/python/skimap.github.io/json/lifts/lifts.geojson";
+// UPDATE THESE PATHS IF NEEDED
+const INPUT_DIR: &str = "../tracks/raw/all"; 
+const OUTPUT_DIR: &str = "../tiles"; 
+const LIFTS_FILE: &str = "../json/lifts/lifts.geojson";
 const EARTH_RADIUS: f64 = 6371000.0;
 
 // DEBUG

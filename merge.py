@@ -21,6 +21,7 @@ import shapely.geometry as geom
 from geopy.distance import distance as geo_distance
 import subprocess
 import sys
+import shutil
 
 # --- Load Environment Variables ---
 try:
@@ -239,25 +240,78 @@ def generate_optimized_map(ski_areas_map=None):
     mymap.get_root().add_child(macro)
     return mymap
 
+def deploy_frontend():
+    print("\n--- Deploying Frontend ---")
+    
+    # 1. Build React App
+    print("Building React App...")
+    try:
+        if os.name == "nt":
+            subprocess.run("cd frontend && npm run build", shell=True, check=True)
+        else:
+            subprocess.run(["npm", "run", "build"], cwd="frontend", check=True)
+    except subprocess.CalledProcessError:
+        print("Error: Frontend build failed.")
+        return
+
+    # 2. Move Artifacts to Root
+    print("Moving artifacts to root...")
+    dist_dir = os.path.join("frontend", "dist")
+    
+    # Move index.html
+    shutil.copy(os.path.join(dist_dir, "index.html"), "index.html")
+    
+    # Move assets folder (delete old one first)
+    if os.path.exists("assets"):
+        shutil.rmtree("assets")
+    shutil.copytree(os.path.join(dist_dir, "assets"), "assets")
+    
+    # Move vite.svg if it exists
+    if os.path.exists(os.path.join(dist_dir, "vite.svg")):
+        shutil.copy(os.path.join(dist_dir, "vite.svg"), "vite.svg")
+        
+    print("✅ Deployment ready! The root directory now contains the built site.")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
     parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
+    parser.add_argument('--deploy', action='store_true', help="Build frontend and move to root for GitHub Pages")
     args = parser.parse_args()
 
     # 2. GENERATE TILES (Run Rust Renderer)
     if not args.html_only:
-        print("Step 1: Generating Tiles (ski_renderer.exe)...")
-        if os.path.exists("ski_renderer.exe"):
-            try: subprocess.run(["ski_renderer.exe"], check=True)
-            except: sys.exit("Error: Rust renderer failed.")
-        else: print("Warning: ski_renderer.exe missing.")
-    
+        print("Step 1: Generating Tiles...")
+        
+        # Possible locations for the binary
+        binary_name = "ski_renderer.exe" if os.name == "nt" else "ski_renderer"
+        possible_paths = [
+            binary_name, # Current directory
+            os.path.join("ski_renderer", binary_name), # Inside project folder
+            os.path.join("ski_renderer", "target", "release", binary_name), # Standard Cargo release path
+        ]
+        
+        renderer_path = None
+        for path in possible_paths:
+            if os.path.isfile(path): # CRITICAL: check it's a file, not a directory
+                renderer_path = path
+                break
+        
+        if renderer_path:
+            try: 
+                if os.name != "nt":
+                    subprocess.run(["chmod", "+x", renderer_path], check=False)
+                subprocess.run([renderer_path], check=True)
+            except Exception as e: sys.exit(f"Error: Rust renderer failed: {e}")
+        else: 
+            print(f"Warning: Rust renderer binary ({binary_name}) missing.")
+            print("Please build it first: cd ski_renderer && cargo build --release")
+
     # 3. UPLOAD TILES
     if args.update_tiles:
         sync_tiles_to_b2()
 
-    # 4. GENERATE HTML
+    # 4. GENERATE DATA FOR FRONTEND
     print("Step 2: Indexing Resorts...")
     with ProcessPoolExecutor(max_workers=mp.cpu_count()) as ex:
         files = [f for f in os.listdir(MERGE_DIRECTORY) if f.endswith('.gpx')]
@@ -267,28 +321,38 @@ def main():
             if name != "Unknown" and center: resorts[name].append(center)
     
     final_map = {k: [sum(x[0] for x in v)/len(v), sum(x[1] for x in v)/len(v)] for k, v in resorts.items()}
-    print(f"Adding {len(final_map)} ski areas to the selector.")
+    print(f"Found {len(final_map)} ski areas.")
     
-    print("Step 3: Generating HTML...")
-    mymap = generate_optimized_map(final_map)
+    # Determine Tile URL
+    if USE_REMOTE_TILES and B2_FRIENDLY_URL:
+        base_url = B2_FRIENDLY_URL if B2_FRIENDLY_URL.endswith('/') else B2_FRIENDLY_URL + '/'
+        tile_url = f"{base_url}tiles/{{z}}/{{x}}/{{y}}.png"
+        print(f"Using Remote Tiles: {tile_url}")
+    else:
+        # In development, we might serve tiles locally. 
+        # Since the React app runs on port 5173 and python server on 8000, 
+        # we might need to point to the python server or just use relative if we build into the root.
+        # For now, let's assume relative to the public root or a specific absolute path.
+        # If we run 'vite' in 'frontend', it serves 'public'. 
+        # We need to symlink 'tiles' to 'frontend/public/tiles' or similar for dev.
+        tile_url = 'tiles/{z}/{x}/{y}.png' 
+        print("Using Local Tiles.")
+
+    data_output = {
+        "ski_areas": final_map,
+        "tile_url": tile_url
+    }
     
-    # Read external CSS
-    with open(MAP_STYLES_CSS, "r") as f:
-        custom_css = f.read()
+    output_path = os.path.join("frontend", "public", "map_data.json")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data_output, f, indent=2)
+        
+    print(f"Done! Data written to {output_path}")
 
-    head_injection = f"""
-        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-        <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9589673596142969"crossorigin="anonymous"></script>
-        <style>{custom_css}</style>
-        </head>"""
-
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(mymap.get_root().render().replace("</head>", head_injection, 1))
-    print("Done! Open index.html.")
+    if args.deploy:
+        deploy_frontend()
 
 if __name__ == "__main__":
     mp.freeze_support()

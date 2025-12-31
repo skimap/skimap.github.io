@@ -21,6 +21,7 @@ import shapely.geometry as geom
 from geopy.distance import distance as geo_distance
 import subprocess
 import sys
+import shutil
 
 # --- Load Environment Variables ---
 try:
@@ -50,6 +51,10 @@ OUTPUT_GEOJSON_DIR = "tracks_geojson"
 TILES_OUTPUT_DIR = "tiles"
 SKI_AREAS_FILE = "json/ski_areas/ski_areas.geojson"
 LIFTS_FILE = "json/lifts/lifts_e.json"
+
+# Asset Paths
+MAP_LOGIC_JS = "assets/map_logic.js"
+MAP_STYLES_CSS = "assets/map_styles.css"
 
 # --- BACKBLAZE B2 CONFIGURATION ---
 B2_KEY_ID = os.getenv("B2_KEY_ID")
@@ -216,87 +221,97 @@ def generate_optimized_map(ski_areas_map=None):
     )
     ski_layer.add_to(mymap)
     
-    # Generate Options HTML in Python
-    options_html = ""
-    areas_js = "{}"
+    areas_js = json.dumps(ski_areas_map or {})
     
-    if ski_areas_map:
-        valid_items = {k: v for k, v in ski_areas_map.items() if k and isinstance(k, str)}
-        sorted_areas = sorted(valid_items.items())
-        areas_js = json.dumps(valid_items)
-        
-        for name, _ in sorted_areas:
-            safe_name = name.replace("'", "&#39;")
-            options_html += f'<option value="{safe_name}">{name}</option>'
+    # Read external JS logic
+    with open(MAP_LOGIC_JS, "r") as f:
+        js_logic = f.read()
 
-    map_id = mymap.get_name()
-    layer_id = ski_layer.get_name()
-    
     macro = MacroElement()
-    
-    js_content = f"""
+    macro._template = Template(f"""
     {{% macro script(this, kwargs) %}}
-        var map = {map_id};
-        var skiLayer = {layer_id};
-        var skiAreas = {areas_js};
+        {js_logic}
         
-        // 1. Create the control
-        var selector = L.control({{position: 'topright'}});
-        
-        // 2. Define onAdd
-        selector.onAdd = function(map) {{
-            var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML = '<select id="area_selector" class="ski-resort-dropdown"><option value="">Jump to Ski Area...</option>{options_html}</select>';
-            L.DomEvent.disableClickPropagation(div); 
-            L.DomEvent.disableScrollPropagation(div);
-            return div;
-        }};
-        
-        // 3. Add to map
-        selector.addTo(map);
-
-        // 4. Add Event Listeners
-        var sel = document.getElementById("area_selector");
-        if (sel) {{
-            sel.addEventListener("change", function(e) {{
-                var val = e.target.value;
-                if(val && skiAreas[val]) {{
-                    map.flyTo(skiAreas[val], 13, {{animate: true, duration: 1.5}});
-                }}
-            }});
-        }}
-
-        // FIX: No retry loop. Just hide the tile if it fails.
-        skiLayer.on('tileerror', function(e) {{
-            e.tile.style.display = 'none';
-        }});
+        // Initialize with data from Python
+        initMapControls({mymap.get_name()}, {ski_layer.get_name()}, {areas_js});
     {{% endmacro %}}
-    """
+    """)
     
-    macro._template = Template(js_content)
     mymap.get_root().add_child(macro)
     return mymap
+
+def deploy_frontend():
+    print("\n--- Deploying Frontend ---")
+    
+    # 1. Build React App
+    print("Building React App...")
+    try:
+        if os.name == "nt":
+            subprocess.run("cd frontend && npm run build", shell=True, check=True)
+        else:
+            subprocess.run(["npm", "run", "build"], cwd="frontend", check=True)
+    except subprocess.CalledProcessError:
+        print("Error: Frontend build failed.")
+        return
+
+    # 2. Move Artifacts to Root
+    print("Moving artifacts to root...")
+    dist_dir = os.path.join("frontend", "dist")
+    
+    # Move index.html
+    shutil.copy(os.path.join(dist_dir, "index.html"), "index.html")
+    
+    # Move assets folder (delete old one first)
+    if os.path.exists("assets"):
+        shutil.rmtree("assets")
+    shutil.copytree(os.path.join(dist_dir, "assets"), "assets")
+    
+    # Move vite.svg if it exists
+    if os.path.exists(os.path.join(dist_dir, "vite.svg")):
+        shutil.copy(os.path.join(dist_dir, "vite.svg"), "vite.svg")
+        
+    print("✅ Deployment ready! The root directory now contains the built site.")
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--html-only', action='store_true', help="Skip tile generation")
     parser.add_argument('--update-tiles', action='store_true', help="Upload tiles to B2")
+    parser.add_argument('--deploy', action='store_true', help="Build frontend and move to root for GitHub Pages")
     args = parser.parse_args()
-
 
     # 2. GENERATE TILES (Run Rust Renderer)
     if not args.html_only:
-        print("Step 1: Generating Tiles (ski_renderer.exe)...")
-        if os.path.exists("ski_renderer.exe"):
-            try: subprocess.run(["ski_renderer.exe"], check=True)
-            except: sys.exit("Error: Rust renderer failed.")
-        else: print("Warning: ski_renderer.exe missing.")
-    
+        print("Step 1: Generating Tiles...")
+        
+        # Possible locations for the binary
+        binary_name = "ski_renderer.exe" if os.name == "nt" else "ski_renderer"
+        possible_paths = [
+            binary_name, # Current directory
+            os.path.join("ski_renderer", binary_name), # Inside project folder
+            os.path.join("ski_renderer", "target", "release", binary_name), # Standard Cargo release path
+        ]
+        
+        renderer_path = None
+        for path in possible_paths:
+            if os.path.isfile(path): # CRITICAL: check it's a file, not a directory
+                renderer_path = path
+                break
+        
+        if renderer_path:
+            try: 
+                if os.name != "nt":
+                    subprocess.run(["chmod", "+x", renderer_path], check=False)
+                subprocess.run([renderer_path], check=True)
+            except Exception as e: sys.exit(f"Error: Rust renderer failed: {e}")
+        else: 
+            print(f"Warning: Rust renderer binary ({binary_name}) missing.")
+            print("Please build it first: cd ski_renderer && cargo build --release")
+
     # 3. UPLOAD TILES
     if args.update_tiles:
         sync_tiles_to_b2()
 
-    # 4. GENERATE HTML
+    # 4. GENERATE DATA FOR FRONTEND
     print("Step 2: Indexing Resorts...")
     with ProcessPoolExecutor(max_workers=mp.cpu_count()) as ex:
         files = [f for f in os.listdir(MERGE_DIRECTORY) if f.endswith('.gpx')]
@@ -306,19 +321,38 @@ def main():
             if name != "Unknown" and center: resorts[name].append(center)
     
     final_map = {k: [sum(x[0] for x in v)/len(v), sum(x[1] for x in v)/len(v)] for k, v in resorts.items()}
-    print(f"Adding {len(final_map)} ski areas to the selector.")
+    print(f"Found {len(final_map)} ski areas.")
     
-    print("Step 3: Generating HTML...")
-    mymap = generate_optimized_map(final_map)
+    # Determine Tile URL
+    if USE_REMOTE_TILES and B2_FRIENDLY_URL:
+        base_url = B2_FRIENDLY_URL if B2_FRIENDLY_URL.endswith('/') else B2_FRIENDLY_URL + '/'
+        tile_url = f"{base_url}tiles/{{z}}/{{x}}/{{y}}.png"
+        print(f"Using Remote Tiles: {tile_url}")
+    else:
+        # In development, we might serve tiles locally. 
+        # Since the React app runs on port 5173 and python server on 8000, 
+        # we might need to point to the python server or just use relative if we build into the root.
+        # For now, let's assume relative to the public root or a specific absolute path.
+        # If we run 'vite' in 'frontend', it serves 'public'. 
+        # We need to symlink 'tiles' to 'frontend/public/tiles' or similar for dev.
+        tile_url = 'tiles/{z}/{x}/{y}.png' 
+        print("Using Local Tiles.")
+
+    data_output = {
+        "ski_areas": final_map,
+        "tile_url": tile_url
+    }
     
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(mymap.get_root().render().replace("</head>", """
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZTNBRD6S"></script>
-        <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HLZTNBRD6S');</script>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9589673596142969"crossorigin="anonymous"></script>
-        <style>.leaflet-tile{image-rendering:pixelated}.ski-resort-dropdown{font-size:14px;padding:8px;max-width:300px}@media(max-width:768px){.ski-resort-dropdown{font-size:11px!important;padding:4px!important;max-width:150px!important}}</style>
-        </head>""", 1))
-    print("Done! Open index.html.")
+    output_path = os.path.join("frontend", "public", "map_data.json")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data_output, f, indent=2)
+        
+    print(f"Done! Data written to {output_path}")
+
+    if args.deploy:
+        deploy_frontend()
 
 if __name__ == "__main__":
     mp.freeze_support()

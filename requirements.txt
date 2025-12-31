@@ -2,3 +2,5 @@ folium
 gpxpy
 tqdm
 shapely
+numba
+geopy

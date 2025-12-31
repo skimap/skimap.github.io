@@ -21,4 +21,11 @@ ski_renderer/target/release/incremental/
 main_cython.py
 tiles/
 .env
-sync.bat
+sync.py
+
+# Frontend
+
+frontend/node_modules/
+frontend/dist/
+frontend/public/map_data.json
+frontend/.vite
